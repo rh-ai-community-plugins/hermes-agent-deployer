@@ -183,39 +183,83 @@ Agent types defined in frontend config (e.g., `src/lib/agents.ts`). Each agent t
 
 Adding a new agent type = new config entry + new container image. No backend needed.
 
-## Implementation Phases
+## Implementation Status
 
-### Phase 1 — MVP (build first)
-1. Scaffold repo structure (React + PatternFly + Webpack Module Federation)
-2. Frontend: Module Federation setup + RHOAI extensions
-3. Nav structure: separator bar below Settings, "Community plugins" parent, plugin nested with "Community" badge
-4. Deployer page: NamespaceBar component for project selection
-5. Create form: model config fields + greyed-out "Pick a cluster model" option
-6. Secret handling: create inline or reference existing Secret by name
-7. Instance list with single-call label-selector discovery
-8. Instance delete with partial failure reporting
-9. Frontend K8s API client (`k8sApi.ts`, `resources.ts`, `instanceApi.ts`)
-10. hermes-sandbox Containerfile (UBI9 + pinned Hermes Agent + WebUI versions)
-11. Helm chart: manager deployment + ConfigMap for instance defaults
-12. plugin.yaml
+### Phase 1 — MVP
 
-### Phase 2 — Auth, Security & Updates
-1. OAuth Proxy sidecar in instance pods (default on)
-2. NetworkPolicy per instance
-3. Instance status polling in UI (watch API or polling)
-4. Instance update (PATCH) — change model config or upgrade image without recreating
+| Item | Status |
+|------|--------|
+| Scaffold repo structure (React + PatternFly + Webpack Module Federation) | Done |
+| Frontend: Module Federation setup + RHOAI extensions | Done |
+| Deployer page with project selection | Done |
+| Create form: model config fields + greyed-out "Pick a cluster model" | Done |
+| Secret handling: create inline or reference existing Secret by name | Done |
+| Instance list with single-call label-selector discovery | Done |
+| Instance delete with partial failure reporting | Done |
+| Frontend K8s API client (`k8sApi.ts`, `resources.ts`, `instanceApi.ts`) | Done |
+| hermes-sandbox Containerfile (UBI9 + Hermes Agent + WebUI) | Scaffolded |
+| Helm chart: manager deployment | Done |
+| Helm chart: ConfigMap for instance defaults (admin-tunable via `helm upgrade`) | Not started |
+| plugin.yaml | Done |
+| Switch to `@module-federation/enhanced` (ChunkLoadError fix — see `issue.md`) | Done, needs cluster test |
 
-### Phase 3 — OpenShell Integration
-1. Research OpenShell policy surface: validate domain-level egress allowlisting, filesystem restrictions
-2. OpenShell supervisor sidecar
-3. Policy ConfigMap per instance (filesystem, network, process rules)
+## Parallel Lanes
 
-### Phase 4 — Polish & Submission
-1. Agent type registry in frontend config
-2. RHOAI Model Serving integration (InferenceService discovery)
-3. CI workflows (lint, test, helm validate, image build+push)
-4. docs/README.md with screenshots + install guide
-5. PR to charter repo's plugins.yaml
+Remaining work breaks into 5 independent lanes. Lanes 1–4 have zero file overlap and can run simultaneously.
+
+```
+Lane 1: Testing & CI ─────────────────────────────────────────────┐
+  Jest unit tests for resources.ts, instanceApi.ts, components     │
+  GitHub Actions: lint, test, helm validate, image build+push      │
+  Playwright E2E against dev server                                │
+                                                                   │
+Lane 2: hermes-sandbox image ─────────────────────────────────────│
+  Pin hermes-agent + hermes-webui versions                         │
+  Test locally with podman (starts, serves WebUI on 8080)          │
+  Push to quay.io/rh-ai-community-plugins/hermes-sandbox           │
+                                                                   │
+Lane 3: OAuth Proxy sidecar ──────────────────────────────────────│── all parallel
+  Add oauth-proxy container to buildDeployment() in resources.ts   │
+  ServiceAccount annotation for oauth-redirectreference            │
+  Route: TLS reencrypt → oauth-proxy on 8443                       │
+  UI toggle wired to InstanceConfig.oauthProxyEnabled              │
+                                                                   │
+Lane 4: NetworkPolicy + instance update ──────────────────────────│
+  buildNetworkPolicy() in resources.ts — new resource type         │
+  Add to create/delete lifecycle in instanceApi.ts                 │
+  PATCH support in instanceApi.ts for Secret + Deployment          │
+  UI: edit modal or inline update for model config changes         │
+                                                                   │
+Lane 5: OpenShell research (low effort) ──────────────────────────┘
+  Read OpenShell Helm chart, understand policy CRDs
+  Design supervisor sidecar spec + policy ConfigMap shape
+  Pure research — no code, no conflicts
+```
+
+### Serial dependencies
+
+```
+ChunkLoadError cluster test ──→ screenshots ──→ docs + install guide
+                                                       │
+Lane 3 (OAuth) + Lane 2 (image) ──→ full cluster       │
+                                     integration test   │
+                                           │            │
+                                           └──→ PR to charter repo's plugins.yaml
+```
+
+- **ChunkLoadError cluster test** gates screenshots and docs — needs RHOAI 3.4 cluster access
+- **Model Serving discovery** (InferenceService endpoints) — needs running RHOAI with served models
+- **Charter submission** — gates on everything else being verified on-cluster
+
+### Remaining items not yet assigned to a lane
+
+| Item | Blocked by |
+|------|------------|
+| Instance status polling (watch API or interval) | Nothing — could join Lane 4 |
+| Agent type registry in frontend config | Nothing — small refactor, could join Lane 1 |
+| RHOAI Model Serving integration | Cluster with served models |
+| docs/README.md with screenshots | Cluster test of ChunkLoadError fix |
+| PR to charter repo's plugins.yaml | All of the above |
 
 ## Verification
 
