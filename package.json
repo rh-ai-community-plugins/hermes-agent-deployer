@@ -1,0 +1,72 @@
+{
+  "name": "hermes-agent-deployer",
+  "version": "0.1.0",
+  "description": "Deploy and manage Hermes Agent instances on OpenShift via RHOAI Dashboard",
+  "private": true,
+  "module-federation": {
+    "name": "hermesAgentDeployer",
+    "remoteEntry": "remoteEntry.js",
+    "authorize": false,
+    "tls": false,
+    "proxy": [
+      {
+        "path": "/hermes-agent-deployer",
+        "pathRewrite": "/hermes-agent-deployer"
+      }
+    ],
+    "local": {
+      "host": "localhost",
+      "port": 9112
+    },
+    "service": {
+      "name": "odh-dashboard",
+      "port": 8843
+    }
+  },
+  "scripts": {
+    "build": "webpack --config config/webpack.prod.js",
+    "build:dev": "webpack --config config/webpack.dev.js",
+    "start:dev": "webpack serve --config config/webpack.dev.js",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "lint": "eslint src/"
+  },
+  "dependencies": {
+    "@openshift/dynamic-plugin-sdk": "^5",
+    "@patternfly/react-core": "^6",
+    "@patternfly/react-icons": "^6",
+    "@patternfly/react-table": "^6",
+    "lodash-es": "^4.18.1",
+    "react": "^18",
+    "react-dom": "^18",
+    "react-router-dom": "^7"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.61.1",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/jest": "^30.0.0",
+    "@types/lodash-es": "^4.17.12",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "@types/react-router-dom": "^5",
+    "css-loader": "^7",
+    "dotenv": "^16",
+    "html-webpack-plugin": "^5",
+    "jest": "^30.4.2",
+    "jest-environment-jsdom": "^30.4.1",
+    "jsdom": "^29.1.1",
+    "mini-css-extract-plugin": "^2",
+    "style-loader": "^4",
+    "ts-jest": "^29.4.11",
+    "ts-loader": "^9",
+    "tsconfig-paths-webpack-plugin": "^4",
+    "typescript": "^5",
+    "webpack": "^5",
+    "webpack-cli": "^5",
+    "webpack-dev-server": "^5",
+    "webpack-merge": "^6"
+  }
+}

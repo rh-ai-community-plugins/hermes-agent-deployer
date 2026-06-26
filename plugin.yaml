@@ -1,0 +1,46 @@
+name: hermes-agent-deployer
+version: 0.1.0
+description: Deploy and manage Hermes Agent instances in OpenShell sandboxes on OpenShift
+
+maintainer:
+  name: Erwan Granger
+  email: egranger@redhat.com
+  github: erwangranger
+
+rhoai_compatibility:
+  min_version: "3.4.0"
+  tested_versions: ["3.4.0"]
+
+image:
+  repository: quay.io/rh-ai-community-plugins/hermes-agent-deployer
+  tag: "0.1.0"
+
+helm:
+  chart_path: chart/
+
+nav:
+  label: Hermes Agent Deployer
+  icon: puzzle-piece
+  url_pattern: /community/hermes-agent-deployer
+
+deployment_model: per-project
+
+rbac:
+  required_roles: []
+  cluster_roles: false
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 100m
+    memory: 128Mi
+
+support:
+  docs: https://github.com/rh-ai-community-plugins/hermes-agent-deployer/docs
+  issues: https://github.com/rh-ai-community-plugins/hermes-agent-deployer/issues
+
+screenshots:
+  - path: docs/screenshots/deployer-page.png
+    caption: Hermes Agent Deployer management page
