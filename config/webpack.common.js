@@ -1,5 +1,5 @@
 const HtmlWebpackPlugin = require('html-webpack-plugin');
-const { ModuleFederationPlugin } = require('webpack').container;
+const { ModuleFederationPlugin } = require('@module-federation/enhanced/webpack');
 const path = require('path');
 const { 'module-federation': moduleFederation } = require('../package.json');
 
@@ -60,11 +60,11 @@ module.exports = {
         './Icon': './src/rhoai/HermesNavIcon.tsx',
       },
       shared: {
-        react: { singleton: true, requiredVersion: '^18' },
-        'react-dom': { singleton: true, requiredVersion: '^18' },
-        'react-router-dom': { singleton: true, requiredVersion: '^7' },
-        '@patternfly/react-core': { singleton: true, requiredVersion: '^6' },
-        '@openshift/dynamic-plugin-sdk': { singleton: true, requiredVersion: '^5' },
+        react: { singleton: true, requiredVersion: '^18', eager: true },
+        'react-dom': { singleton: true, requiredVersion: '^18', eager: true },
+        'react-router-dom': { singleton: true, requiredVersion: '^7', eager: true },
+        '@patternfly/react-core': { singleton: true, requiredVersion: '^6', eager: true },
+        '@openshift/dynamic-plugin-sdk': { singleton: true, requiredVersion: '^5', eager: true },
       },
     }),
   ],

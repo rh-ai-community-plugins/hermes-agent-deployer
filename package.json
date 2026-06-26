@@ -33,6 +33,7 @@
     "lint": "eslint src/"
   },
   "dependencies": {
+    "@module-federation/enhanced": "^2.6.0",
     "@openshift/dynamic-plugin-sdk": "^5",
     "@patternfly/react-core": "^6",
     "@patternfly/react-icons": "^6",

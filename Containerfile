@@ -17,7 +17,7 @@ location / {
     try_files $uri $uri/ /index.html;
 }
 
-location /remoteEntry.js {
+location ~ ^/(remoteEntry\.js|__federation_expose_.*\.bundle\.js)$ {
     add_header Access-Control-Allow-Origin *;
 }
 EOF

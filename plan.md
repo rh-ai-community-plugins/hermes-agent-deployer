@@ -84,7 +84,7 @@ hermes-agent-deployer/
 │   └── typings.d.ts
 ├── images/
 │   └── hermes-sandbox/
-│       └── Containerfile          # UBI9 + Hermes Agent + WebUI, port 8080
+│       └── Containerfile          # UBI9 + Hermes Agent + WebUI + Chromium/Playwright, port 8080
 ├── package.json
 └── tsconfig.json
 ```
@@ -94,15 +94,19 @@ hermes-agent-deployer/
 | Image | Base | Contents | Port |
 |-------|------|----------|------|
 | `quay.io/rh-ai-community-plugins/hermes-agent-deployer:0.1.0` | UBI9 nginx | Manager frontend (React + PatternFly bundle) | 8080 |
-| `quay.io/rh-ai-community-plugins/hermes-sandbox:0.1.0` | UBI9 Python 3.11 | Hermes Agent + WebUI pre-installed | 8080 |
+| `quay.io/rh-ai-community-plugins/hermes-sandbox:0.1.0` | UBI9 Python 3.11 | Hermes Agent + WebUI + Chromium/Playwright | 8080 |
 
 **hermes-sandbox image build:**
 1. Base: `registry.access.redhat.com/ubi9/python-311`
-2. Install `hermes-agent` and `hermes-webui` with pinned versions (pin to current latest at build time)
-3. Set `HERMES_WEBUI_PORT=8080`, `HERMES_WEBUI_HOST=0.0.0.0`
-4. Create `/home/hermes/.hermes` owned by root group (GID 0) with `g=u` permissions — supports OpenShift arbitrary UID assignment (restricted SCC assigns a random UID from the namespace range, always with GID 0)
-5. `USER 1001` as fallback — OpenShift overrides this via restricted SCC, but it provides a sensible default for non-OpenShift environments
-6. Entrypoint: start Hermes WebUI (runs agent in-process)
+2. Install system deps: `git`, `nodejs`, `npm`, plus Chromium deps (`nss`, `atk`, `cups-libs`, `libdrm`, `libXcomposite`, `libXdamage`, `libXrandr`, `mesa-libgbm`, `pango`, `alsa-lib`, `liberation-fonts`)
+3. Install `hermes-agent`, `playwright`, and `hermes-webui` with pinned versions
+4. Install Playwright's Chromium browser to `/opt/playwright-browsers` (shared, read-only at runtime)
+5. Set `HERMES_WEBUI_PORT=8080`, `HERMES_WEBUI_HOST=0.0.0.0`, `PLAYWRIGHT_BROWSERS_PATH=/opt/playwright-browsers`
+6. Create `/home/hermes/.hermes` owned by root group (GID 0) with `g=u` permissions — supports OpenShift arbitrary UID assignment (restricted SCC assigns a random UID from the namespace range, always with GID 0)
+7. `USER 1001` as fallback — OpenShift overrides this via restricted SCC, but it provides a sensible default for non-OpenShift environments
+8. Entrypoint: start Hermes WebUI (runs agent in-process)
+
+**Browser support:** The image includes Chromium and Playwright so the Hermes agent can browse the web, take screenshots, and run browser automation. Chromium runs headless. On OpenShift, the kernel sandbox is disabled (`--no-sandbox`) because the pod's restricted SCC already provides container-level isolation — standard practice for containerized browsers. OpenShell (Phase 3) adds network egress policy to control which sites the agent can reach.
 
 ## Helm Chart (chart/)
 
@@ -197,7 +201,7 @@ Adding a new agent type = new config entry + new container image. No backend nee
 | Instance list with single-call label-selector discovery | Done |
 | Instance delete with partial failure reporting | Done |
 | Frontend K8s API client (`k8sApi.ts`, `resources.ts`, `instanceApi.ts`) | Done |
-| hermes-sandbox Containerfile (UBI9 + Hermes Agent + WebUI) | Scaffolded |
+| hermes-sandbox Containerfile (UBI9 + Hermes Agent + WebUI + Chromium/Playwright) | Scaffolded |
 | Helm chart: manager deployment | Done |
 | Helm chart: ConfigMap for instance defaults (admin-tunable via `helm upgrade`) | Not started |
 | plugin.yaml | Done |
@@ -215,7 +219,9 @@ Lane 1: Testing & CI ───────────────────�
                                                                    │
 Lane 2: hermes-sandbox image ─────────────────────────────────────│
   Pin hermes-agent + hermes-webui versions                         │
+  Install Chromium + Playwright for browser automation             │
   Test locally with podman (starts, serves WebUI on 8080)          │
+  Verify Playwright can launch headless Chromium inside container  │
   Push to quay.io/rh-ai-community-plugins/hermes-sandbox           │
                                                                    │
 Lane 3: OAuth Proxy sidecar ──────────────────────────────────────│── all parallel
@@ -268,6 +274,7 @@ Lane 3 (OAuth) + Lane 2 (image) ──→ full cluster       │
 3. Open RHAIE dashboard → click "Hermes Agent Deployer" in sidebar
 4. Create an instance → verify pod Running, Route accessible
 5. Access Hermes WebUI via Route → configure model → send a prompt
+5b. Verify browser capability: `podman exec <container> python -c "from playwright.sync_api import sync_playwright; b=sync_playwright().start().chromium.launch(headless=True); b.close(); print('OK')"` 
 6. Create 2 more instances in different namespaces → verify independence
 7. Delete an instance → verify all resources cleaned up, partial failures reported
 8. `helm uninstall hermes-deployer` → verify instances survive (by design)

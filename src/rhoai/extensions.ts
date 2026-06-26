@@ -1,3 +1,5 @@
+import HermesDeployerPage from '../app/components/HermesDeployerPage';
+
 export const hermesAreaExtension = {
   type: 'app.area' as const,
   properties: {
@@ -20,7 +22,7 @@ export const hermesRouteExtension = {
   type: 'app.route' as const,
   properties: {
     path: '/hermes-agent-deployer/*',
-    component: () => import('../app/components/HermesDeployerPage'),
+    component: () => Promise.resolve({ default: HermesDeployerPage }),
   },
 };
 

@@ -2,10 +2,17 @@ FROM registry.access.redhat.com/ubi9/python-311:latest
 
 USER 0
 
-RUN dnf install -y --nodocs git nodejs npm && \
-    dnf clean all
+RUN dnf install -y --nodocs \
+        git nodejs npm \
+        nss atk cups-libs libdrm libXcomposite libXdamage libXrandr \
+        mesa-libgbm pango alsa-lib liberation-fonts \
+    && dnf clean all
 
-RUN pip install --no-cache-dir hermes-agent
+RUN pip install --no-cache-dir hermes-agent playwright
+
+ENV PLAYWRIGHT_BROWSERS_PATH=/opt/playwright-browsers
+RUN playwright install chromium && \
+    chmod -R o+rx /opt/playwright-browsers
 
 RUN git clone --depth 1 https://github.com/nesquena/hermes-webui.git /opt/hermes-webui && \
     cd /opt/hermes-webui && \

@@ -94,7 +94,33 @@ Use the exact shared config from build 1. Nav item works. Clicking it crashes �
 }
 ```
 
-## Working webpack shared config (nav visible, click crashes)
+## Fix applied: Switch to @module-federation/enhanced
+
+Implemented Approach A. Changes:
+
+1. **`npm install @module-federation/enhanced`** — matches dashboard's runtime
+2. **`config/webpack.common.js`** — switched to `require('@module-federation/enhanced/webpack')`, added `eager: true` on all shared modules
+3. **`config/webpack.prod.js`** — disabled `splitChunks` (vendor chunks were getting blocked by OAuth gateway)
+4. **`src/rhoai/extensions.ts`** — replaced dynamic `import()` of HermesDeployerPage with sync import + `Promise.resolve()` (eliminates lazy chunk for route component)
+5. **`Containerfile`** — expanded nginx CORS to cover `__federation_expose_*.bundle.js` files
+
+### Build output after fix
+```
+remoteEntry.js                           — 3.96 MiB (enhanced runtime + container)
+__federation_expose_extensions.*.js      — 523 KiB  (extensions + page component)
+__federation_expose_Icon.*.js            — 626 B    (nav icon)
+main.*.js                                — 3.96 MiB (standalone mode only)
+890.*.js                                 — 1.1 MiB  (bootstrap chunk, standalone only)
+```
+
+No numbered shared module fallback chunks (the root cause of ChunkLoadError).
+
+### Status
+- [x] Build succeeds
+- [x] Container image builds
+- [ ] Test in RHOAI 3.4 dashboard — deploy image, patch federation-config, verify nav + click
+
+## Previous working webpack shared config (nav visible, click crashed)
 ```javascript
 shared: {
   react: { singleton: true, requiredVersion: '^18' },
