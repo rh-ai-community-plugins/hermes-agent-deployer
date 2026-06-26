@@ -1,0 +1,29 @@
+FROM registry.access.redhat.com/ubi9/python-311:latest
+
+USER 0
+
+RUN dnf install -y --nodocs git nodejs npm && \
+    dnf clean all
+
+RUN pip install --no-cache-dir hermes-agent
+
+RUN git clone --depth 1 https://github.com/nesquena/hermes-webui.git /opt/hermes-webui && \
+    cd /opt/hermes-webui && \
+    pip install --no-cache-dir -r requirements.txt 2>/dev/null || true
+
+RUN mkdir -p /home/hermes/.hermes /tmp/hermes && \
+    chgrp -R 0 /home/hermes /opt/hermes-webui /tmp/hermes && \
+    chmod -R g=u /home/hermes /opt/hermes-webui /tmp/hermes
+
+ENV HOME=/home/hermes \
+    HERMES_WEBUI_PORT=8080 \
+    HERMES_WEBUI_HOST=0.0.0.0 \
+    HERMES_WEBUI_STATE_DIR=/home/hermes/.hermes/webui
+
+EXPOSE 8080
+
+WORKDIR /opt/hermes-webui
+
+USER 1001
+
+CMD ["python", "server.py"]

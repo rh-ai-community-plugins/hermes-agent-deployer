@@ -1,0 +1,43 @@
+image:
+  repository: quay.io/rh-ai-community-plugins/hermes-agent-deployer
+  tag: latest
+  pullPolicy: IfNotPresent
+
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+replicaCount: 1
+
+service:
+  type: ClusterIP
+  port: 8080
+  targetPort: 8080
+
+route:
+  enabled: true
+
+resources:
+  limits:
+    cpu: 100m
+    memory: 128Mi
+  requests:
+    cpu: 50m
+    memory: 64Mi
+
+podSecurityContext:
+  runAsNonRoot: true
+
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
