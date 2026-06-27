@@ -115,10 +115,19 @@ main.*.js                                — 3.96 MiB (standalone mode only)
 
 No numbered shared module fallback chunks (the root cause of ChunkLoadError).
 
+### Deployment notes
+- Must build with `--platform linux/amd64` (Mac builds ARM images by default → `Exec format error`)
+- Push to internal registry: `podman push --tls-verify=false $REGISTRY/hermes-deployer/hermes-agent-deployer:0.1.0`
+- Scale down operator first: `oc scale deployment/rhods-operator -n redhat-ods-operator --replicas=0`
+- Restart plugin pod + dashboard after push
+
 ### Status
 - [x] Build succeeds
-- [x] Container image builds
-- [ ] Test in RHOAI 3.4 dashboard — deploy image, patch federation-config, verify nav + click
+- [x] Container image builds (linux/amd64)
+- [x] Image pushed to OpenShift internal registry
+- [x] Plugin pod running
+- [x] Dashboard restarted
+- [ ] Verify nav item visible + clicking works without ChunkLoadError
 
 ## Previous working webpack shared config (nav visible, click crashed)
 ```javascript
