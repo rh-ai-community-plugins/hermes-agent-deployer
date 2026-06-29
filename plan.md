@@ -201,11 +201,24 @@ Adding a new agent type = new config entry + new container image. No backend nee
 | Instance list with single-call label-selector discovery | Done |
 | Instance delete with partial failure reporting | Done |
 | Frontend K8s API client (`k8sApi.ts`, `resources.ts`, `instanceApi.ts`) | Done |
-| hermes-sandbox Containerfile (UBI9 + Hermes Agent + WebUI + Chromium/Playwright) | Scaffolded |
+| hermes-sandbox Containerfile (UBI9 + Hermes Agent + WebUI + Chromium/Playwright) | Done |
 | Helm chart: manager deployment | Done |
 | Helm chart: ConfigMap for instance defaults (admin-tunable via `helm upgrade`) | Not started |
 | plugin.yaml | Done |
-| Switch to `@module-federation/enhanced` (ChunkLoadError fix — see `issue.md`) | Done, needs cluster test |
+| Switch to `@module-federation/enhanced` (ChunkLoadError fix — see `issue.md`) | Done, verified on cluster |
+
+### Phase 2 — Production Ready
+
+| Item | Status |
+|------|--------|
+| OAuth proxy sidecar: `buildDeployment()`, `buildService()`, `buildRoute()`, `buildServiceAccount()` (48cb935) | Done, deployed |
+| Hermes env vars: OPENAI_API_KEY, OPENAI_BASE_URL, HERMES_INFERENCE_MODEL (48cb935) | Done, deployed |
+| TLS secret cleanup on delete (48cb935) | Done |
+| Cookie secret generation via Web Crypto API | Done |
+| UI toggle for OAuth proxy enable/disable | Done |
+| Helm values: instance defaults for hermes image, oauth-proxy image, PVC size, resources | Not started |
+| ConfigMap for instance defaults (admin-tunable) | Not started |
+| Cluster test: full create/delete/access flow with real OAuth gateway | In progress (cluster-57jwj) |
 
 ## Parallel Lanes
 
@@ -265,6 +278,7 @@ Lane 3 (OAuth) + Lane 2 (image) ──→ full cluster       │
 | Agent type registry in frontend config | Nothing — small refactor, could join Lane 1 |
 | RHOAI Model Serving integration | Cluster with served models |
 | docs/README.md with screenshots | Cluster test of ChunkLoadError fix |
+| Nav: "Community Plugins" section with icon | RHOAI 3.4.1 limitation — external MF plugins' `app.navigation/section` and `iconRef` extensions are silently dropped; only `app.navigation/href` (flat item) works. Internal packages (gen-ai) use sections but dashboard ignores them from external remotes. Workaround: flat nav item (current). Backlog: revisit when RHOAI 3.5+ is available; `CommunityPluginsIcon.tsx` kept for reuse. [[project-dashboard-nav-limitation]] |
 | PR to charter repo's plugins.yaml | All of the above |
 
 ## Verification
