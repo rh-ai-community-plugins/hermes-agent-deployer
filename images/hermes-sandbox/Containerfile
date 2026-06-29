@@ -5,7 +5,7 @@ USER 0
 RUN dnf install -y --nodocs \
         git nodejs npm \
         nss atk cups-libs libdrm libXcomposite libXdamage libXrandr \
-        mesa-libgbm pango alsa-lib liberation-fonts \
+        mesa-libgbm pango alsa-lib \
     && dnf clean all
 
 RUN pip install --no-cache-dir hermes-agent playwright

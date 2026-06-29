@@ -192,6 +192,7 @@ export async function deleteInstance(name: string, namespace: string): Promise<v
     k8sFetch(`/apis/apps/v1/namespaces/${namespace}/deployments/${prefix}`, { method: 'DELETE' }).catch(() => {}),
     k8sFetch(`/api/v1/namespaces/${namespace}/serviceaccounts/${prefix}`, { method: 'DELETE' }).catch(() => {}),
     k8sFetch(`/api/v1/namespaces/${namespace}/secrets/${prefix}-credentials`, { method: 'DELETE' }).catch(() => {}),
+    k8sFetch(`/api/v1/namespaces/${namespace}/secrets/${prefix}-tls`, { method: 'DELETE' }).catch(() => {}),
     k8sFetch(`/api/v1/namespaces/${namespace}/persistentvolumeclaims/${prefix}-data`, { method: 'DELETE' }).catch(() => {}),
   ];
   await Promise.all(deletions);
