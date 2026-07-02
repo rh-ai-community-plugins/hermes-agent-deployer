@@ -1,4 +1,5 @@
 import { CreateInstanceRequest } from '../types';
+import { InstanceDefaults } from './config';
 
 function generateCookieSecret(): string {
   const bytes = new Uint8Array(32);
@@ -12,9 +13,6 @@ const LABELS = (name: string, agentType: string) => ({
   'app.kubernetes.io/managed-by': 'hermes-agent-deployer',
   'hermes-agent-deployer/agent-type': agentType,
 });
-
-const DEFAULT_HERMES_IMAGE = 'image-registry.openshift-image-registry.svc:5000/hermes-deployer/hermes-sandbox:0.1.0';
-const OAUTH_PROXY_IMAGE = 'registry.redhat.io/openshift4/ose-oauth-proxy-rhel9:v4.17';
 
 export function buildSecret(req: CreateInstanceRequest) {
   return {
@@ -76,11 +74,11 @@ export function buildServiceAccount(req: CreateInstanceRequest) {
   return sa;
 }
 
-export function buildDeployment(req: CreateInstanceRequest) {
+export function buildDeployment(req: CreateInstanceRequest, defaults: InstanceDefaults) {
   const containers: Record<string, unknown>[] = [
     {
       name: 'hermes-sandbox',
-      image: DEFAULT_HERMES_IMAGE,
+      image: defaults.hermesImage,
       ports: [{ containerPort: 8080, name: 'http' }],
       env: [
         { name: 'HERMES_WEBUI_PORT', value: '8080' },
@@ -93,10 +91,7 @@ export function buildDeployment(req: CreateInstanceRequest) {
         { name: 'hermes-data', mountPath: '/home/hermes/.hermes' },
         { name: 'tmp', mountPath: '/tmp' },
       ],
-      resources: {
-        requests: { cpu: '200m', memory: '512Mi' },
-        limits: { cpu: '1', memory: '1Gi' },
-      },
+      resources: defaults.resources,
       securityContext: {
         runAsNonRoot: true,
         allowPrivilegeEscalation: false,
@@ -126,7 +121,7 @@ export function buildDeployment(req: CreateInstanceRequest) {
   if (req.oauthProxyEnabled) {
     containers.push({
       name: 'oauth-proxy',
-      image: OAUTH_PROXY_IMAGE,
+      image: defaults.oauthProxy.image,
       args: [
         '--https-address=:8443',
         '--provider=openshift',

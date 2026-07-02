@@ -1,7 +1,7 @@
 image:
   repository: quay.io/rh-ai-community-plugins/hermes-agent-deployer
   tag: latest
-  pullPolicy: IfNotPresent
+  pullPolicy: Always
 
 nameOverride: ""
 fullnameOverride: ""
@@ -41,3 +41,18 @@ containerSecurityContext:
 nodeSelector: {}
 tolerations: []
 affinity: {}
+
+instanceDefaults:
+  hermesImage: quay.io/rh-ai-community-plugins/hermes-sandbox:0.1.0
+  oauthProxy:
+    enabled: true
+    image: registry.redhat.io/openshift4/ose-oauth-proxy-rhel9:v4.17
+  pvc:
+    size: 1Gi
+  resources:
+    requests:
+      cpu: 200m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi

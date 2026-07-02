@@ -37,6 +37,15 @@ spec:
               port: http
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: instance-config
+              mountPath: /opt/app-root/src/config.json
+              subPath: config.json
+              readOnly: true
+      volumes:
+        - name: instance-config
+          configMap:
+            name: {{ include "hermes-agent-deployer.fullname" . }}-config
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

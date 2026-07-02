@@ -18,6 +18,9 @@ RUN git clone --depth 1 https://github.com/nesquena/hermes-webui.git /opt/hermes
     cd /opt/hermes-webui && \
     pip install --no-cache-dir -r requirements.txt 2>/dev/null || true
 
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
 RUN mkdir -p /home/hermes/.hermes /tmp/hermes && \
     chgrp -R 0 /home/hermes /opt/hermes-webui /tmp/hermes && \
     chmod -R g=u /home/hermes /opt/hermes-webui /tmp/hermes
@@ -33,4 +36,4 @@ WORKDIR /opt/hermes-webui
 
 USER 1001
 
-CMD ["python", "server.py"]
+CMD ["/usr/local/bin/entrypoint.sh"]

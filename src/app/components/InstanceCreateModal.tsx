@@ -19,6 +19,7 @@ import {
 } from '@patternfly/react-core';
 import { CreateInstanceRequest, AgentType } from '../types';
 import { listNamespaces, listAgentTypes } from '../api/instanceApi';
+import { getInstanceDefaults, InstanceDefaults } from '../api/config';
 
 interface InstanceCreateModalProps {
   isOpen: boolean;
@@ -37,6 +38,7 @@ const InstanceCreateModal: React.FC<InstanceCreateModalProps> = ({ isOpen, onClo
   const [oauthProxyEnabled, setOauthProxyEnabled] = useState(true);
   const [namespaces, setNamespaces] = useState<string[]>([]);
   const [agentTypes, setAgentTypes] = useState<AgentType[]>([]);
+  const [defaults, setDefaults] = useState<InstanceDefaults | null>(null);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -44,6 +46,11 @@ const InstanceCreateModal: React.FC<InstanceCreateModalProps> = ({ isOpen, onClo
     if (isOpen) {
       listNamespaces().then(setNamespaces).catch(() => setNamespaces([]));
       listAgentTypes().then(setAgentTypes).catch(() => setAgentTypes([]));
+      getInstanceDefaults().then((d) => {
+        setDefaults(d);
+        setPvcSize(d.pvc.size);
+        setOauthProxyEnabled(d.oauthProxy.enabled);
+      });
     }
   }, [isOpen]);
 
@@ -54,8 +61,8 @@ const InstanceCreateModal: React.FC<InstanceCreateModalProps> = ({ isOpen, onClo
     setModelName('');
     setModelUrl('');
     setApiKey('');
-    setPvcSize('1Gi');
-    setOauthProxyEnabled(true);
+    setPvcSize(defaults?.pvc.size ?? '1Gi');
+    setOauthProxyEnabled(defaults?.oauthProxy.enabled ?? true);
     setError('');
   };
 

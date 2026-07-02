@@ -1,6 +1,7 @@
 import { HermesInstance, CreateInstanceRequest, AgentType, InstanceStatus } from '../types';
 import { k8sFetch, listNamespaces as k8sListNamespaces } from './k8sApi';
 import { buildSecret, buildPvc, buildServiceAccount, buildDeployment, buildService, buildRoute } from './resources';
+import { getInstanceDefaults } from './config';
 
 const LABEL_SELECTOR = 'app.kubernetes.io/managed-by=hermes-agent-deployer';
 
@@ -85,6 +86,7 @@ export async function listInstances(): Promise<HermesInstance[]> {
 }
 
 export async function createInstance(req: CreateInstanceRequest): Promise<HermesInstance> {
+  const defaults = await getInstanceDefaults();
   const created: Array<{ kind: string; name: string; namespace: string; apiPath: string }> = [];
 
   const rollback = async () => {
@@ -134,7 +136,7 @@ export async function createInstance(req: CreateInstanceRequest): Promise<Hermes
       apiPath: `/api/v1/namespaces/${req.namespace}/serviceaccounts/${sa.metadata.name}`,
     });
 
-    const deployment = buildDeployment(req);
+    const deployment = buildDeployment(req, defaults);
     await k8sFetch(`/apis/apps/v1/namespaces/${req.namespace}/deployments`, {
       method: 'POST',
       body: JSON.stringify(deployment),
