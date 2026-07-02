@@ -203,7 +203,7 @@ Adding a new agent type = new config entry + new container image. No backend nee
 | Frontend K8s API client (`k8sApi.ts`, `resources.ts`, `instanceApi.ts`) | Done |
 | hermes-sandbox Containerfile (UBI9 + Hermes Agent + WebUI + Chromium/Playwright) | Done |
 | Helm chart: manager deployment | Done |
-| Helm chart: ConfigMap for instance defaults (admin-tunable via `helm upgrade`) | Not started |
+| Helm chart: ConfigMap for instance defaults (admin-tunable via `helm upgrade`) | Done |
 | plugin.yaml | Done |
 | Switch to `@module-federation/enhanced` (ChunkLoadError fix — see `issue.md`) | Done, verified on cluster |
 
@@ -216,8 +216,8 @@ Adding a new agent type = new config entry + new container image. No backend nee
 | TLS secret cleanup on delete (48cb935) | Done |
 | Cookie secret generation via Web Crypto API | Done |
 | UI toggle for OAuth proxy enable/disable | Done |
-| Helm values: instance defaults for hermes image, oauth-proxy image, PVC size, resources | Not started |
-| ConfigMap for instance defaults (admin-tunable) | Not started |
+| Helm values: instance defaults for hermes image, oauth-proxy image, PVC size, resources | Done |
+| ConfigMap for instance defaults (admin-tunable) | Done |
 | Cluster test: full create/delete/access flow with real OAuth gateway | In progress (cluster-57jwj) |
 
 ## Parallel Lanes
@@ -250,9 +250,14 @@ Lane 4: NetworkPolicy + instance update ─────────────�
   UI: edit modal or inline update for model config changes         │
                                                                    │
 Lane 5: OpenShell research (low effort) ──────────────────────────┘
-  Read OpenShell Helm chart, understand policy CRDs
-  Design supervisor sidecar spec + policy ConfigMap shape
+  Read OpenShell Helm chart, understand policy CRDs              DONE
+  Design supervisor sidecar spec + policy ConfigMap shape        DONE
   Pure research — no code, no conflicts
+  Findings: research/openshell-findings.md
+  KEY: OpenShell requires privileged SCC on OpenShift (blocker).
+       Not a sidecar — replaces pod management entirely.
+       Platform mode (Issue #899) would fix SCC but has no timeline.
+       Recommendation: use NetworkPolicy as Phase 3 stepping stone.
 ```
 
 ### Serial dependencies
@@ -278,6 +283,9 @@ Lane 3 (OAuth) + Lane 2 (image) ──→ full cluster       │
 | Agent type registry in frontend config | Nothing — small refactor, could join Lane 1 |
 | RHOAI Model Serving integration | Cluster with served models |
 | docs/README.md with screenshots | Cluster test of ChunkLoadError fix |
+| Project dropdown visible at top of page | Nothing — UI layout change, move NamespaceBar to prominent top position |
+| Display name for instances | Nothing — user enters a free-text display name (any case), backend slugifies it to a valid K8s resource name; display name stored in annotation |
+| Fix browser deps in hermes-sandbox image | Nothing — Playwright/Chromium reports missing dependencies at runtime, falls back to curl; fix Containerfile to install all required shared libraries |
 | Nav: "Community Plugins" section with icon | RHOAI 3.4.1 limitation — external MF plugins' `app.navigation/section` and `iconRef` extensions are silently dropped; only `app.navigation/href` (flat item) works. Internal packages (gen-ai) use sections but dashboard ignores them from external remotes. Workaround: flat nav item (current). Backlog: revisit when RHOAI 3.5+ is available; `CommunityPluginsIcon.tsx` kept for reuse. [[project-dashboard-nav-limitation]] |
 | PR to charter repo's plugins.yaml | All of the above |
 
