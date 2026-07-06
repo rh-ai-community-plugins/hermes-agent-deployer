@@ -88,7 +88,7 @@ export function buildDeployment(req: CreateInstanceRequest, defaults: InstanceDe
         { secretRef: { name: `hermes-${req.name}-credentials` } },
       ],
       volumeMounts: [
-        { name: 'hermes-data', mountPath: '/home/hermes/.hermes' },
+        { name: 'hermes-data', mountPath: '/home/hermes' },
         { name: 'tmp', mountPath: '/tmp' },
       ],
       resources: defaults.resources,
