@@ -14,7 +14,8 @@ export const hermesNavItemExtension = {
     id: 'hermes-agent-deployer-nav',
     title: 'Hermes Agent Deployer',
     href: '/hermes-agent-deployer',
-    group: '9_plugins',
+    section: 'community-plugins',
+    label: 'Community',
   },
 };
 
