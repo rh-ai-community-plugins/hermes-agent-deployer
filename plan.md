@@ -196,7 +196,8 @@ Adding a new agent type = new config entry + new container image. No backend nee
 | Scaffold repo structure (React + PatternFly + Webpack Module Federation) | Done |
 | Frontend: Module Federation setup + RHOAI extensions | Done |
 | Deployer page with project selection | Done |
-| Create form: model config fields + greyed-out "Pick a cluster model" | Done |
+| Create form: model config fields (URL, API key, model name) | Done |
+| Greyed-out "Pick a cluster model" option | Not done — never added to UI |
 | Secret handling: create inline or reference existing Secret by name | Done |
 | Instance list with single-call label-selector discovery | Done |
 | Instance delete with partial failure reporting | Done |
@@ -218,76 +219,92 @@ Adding a new agent type = new config entry + new container image. No backend nee
 | UI toggle for OAuth proxy enable/disable | Done |
 | Helm values: instance defaults for hermes image, oauth-proxy image, PVC size, resources | Done |
 | ConfigMap for instance defaults (admin-tunable) | Done |
-| Cluster test: full create/delete/access flow with real OAuth gateway | In progress (cluster-57jwj) |
+| Cluster test: full create/delete/access flow with real OAuth gateway | Stale — cluster-57jwj likely decommissioned; needs fresh cluster |
 
 ## Parallel Lanes
 
-Remaining work breaks into 5 independent lanes. Lanes 1–4 have zero file overlap and can run simultaneously.
+### Completed lanes
+
+- **Lane 2 (hermes-sandbox image)** — Containerfile + entrypoint built, Chromium/Playwright included, pushed to quay.io
+- **Lane 3 (OAuth Proxy sidecar)** — implemented in 48cb935, deployed and tested
+- **Lane 5 (OpenShell research)** — findings in `research/openshell-findings.md`. Key finding: OpenShell requires privileged SCC (blocker); recommendation is NetworkPolicy as stepping stone
+
+### Active lanes
 
 ```
 Lane 1: Testing & CI ─────────────────────────────────────────────┐
+  Status: Not started — zero test files, no .github/ directory     │
   Jest unit tests for resources.ts, instanceApi.ts, components     │
   GitHub Actions: lint, test, helm validate, image build+push      │
   Playwright E2E against dev server                                │
                                                                    │
-Lane 2: hermes-sandbox image ─────────────────────────────────────│
-  Pin hermes-agent + hermes-webui versions                         │
-  Install Chromium + Playwright for browser automation             │
-  Test locally with podman (starts, serves WebUI on 8080)          │
-  Verify Playwright can launch headless Chromium inside container  │
-  Push to quay.io/rh-ai-community-plugins/hermes-sandbox           │
-                                                                   │
-Lane 3: OAuth Proxy sidecar ──────────────────────────────────────│── all parallel
-  Add oauth-proxy container to buildDeployment() in resources.ts   │
-  ServiceAccount annotation for oauth-redirectreference            │
-  Route: TLS reencrypt → oauth-proxy on 8443                       │
-  UI toggle wired to InstanceConfig.oauthProxyEnabled              │
-                                                                   │
-Lane 4: NetworkPolicy + instance update ──────────────────────────│
-  buildNetworkPolicy() in resources.ts — new resource type         │
-  Add to create/delete lifecycle in instanceApi.ts                 │
-  PATCH support in instanceApi.ts for Secret + Deployment          │
-  UI: edit modal or inline update for model config changes         │
-                                                                   │
-Lane 5: OpenShell research (low effort) ──────────────────────────┘
-  Read OpenShell Helm chart, understand policy CRDs              DONE
-  Design supervisor sidecar spec + policy ConfigMap shape        DONE
-  Pure research — no code, no conflicts
-  Findings: research/openshell-findings.md
-  KEY: OpenShell requires privileged SCC on OpenShift (blocker).
-       Not a sidecar — replaces pod management entirely.
-       Platform mode (Issue #899) would fix SCC but has no timeline.
-       Recommendation: use NetworkPolicy as Phase 3 stepping stone.
+Lane 4: NetworkPolicy + instance update ──────────────────────────┘
+  Status: Not started
+  buildNetworkPolicy() in resources.ts — new resource type
+  Add to create/delete lifecycle in instanceApi.ts
+  PATCH support in instanceApi.ts for Secret + Deployment
+  UI: edit modal or inline update for model config changes
 ```
 
 ### Serial dependencies
 
 ```
-ChunkLoadError cluster test ──→ screenshots ──→ docs + install guide
-                                                       │
-Lane 3 (OAuth) + Lane 2 (image) ──→ full cluster       │
-                                     integration test   │
-                                           │            │
-                                           └──→ PR to charter repo's plugins.yaml
+Fresh cluster test ──→ screenshots ──→ docs + install guide
+                                              │
+                                              └──→ PR to charter repo's plugins.yaml
 ```
 
-- **ChunkLoadError cluster test** gates screenshots and docs — needs RHOAI 3.4 cluster access
-- **Model Serving discovery** (InferenceService endpoints) — needs running RHOAI with served models
-- **Charter submission** — gates on everything else being verified on-cluster
+- **Fresh cluster test** gates screenshots and docs — needs RHOAI 3.4+ cluster access. OAuth and sandbox image are ready; just needs a cluster.
+- **Model Serving discovery** (InferenceService endpoints) — independent, needs running RHOAI with served models
+- **Charter submission** — gates on verified cluster test + docs
 
-### Remaining items not yet assigned to a lane
+### Recently completed (were in backlog)
 
-| Item | Blocked by |
-|------|------------|
-| Instance status polling (watch API or interval) | Nothing — could join Lane 4 |
-| Agent type registry in frontend config | Nothing — small refactor, could join Lane 1 |
-| RHOAI Model Serving integration | Cluster with served models |
-| docs/README.md with screenshots | Cluster test of ChunkLoadError fix |
-| Project dropdown visible at top of page | Nothing — UI layout change, move NamespaceBar to prominent top position |
-| Display name for instances | Nothing — user enters a free-text display name (any case), backend slugifies it to a valid K8s resource name; display name stored in annotation |
-| Fix browser deps in hermes-sandbox image | Nothing — Playwright/Chromium reports missing dependencies at runtime, falls back to curl; fix Containerfile to install all required shared libraries |
-| Nav: "Community Plugins" section with icon | RHOAI 3.4.1 limitation — external MF plugins' `app.navigation/section` and `iconRef` extensions are silently dropped; only `app.navigation/href` (flat item) works. Internal packages (gen-ai) use sections but dashboard ignores them from external remotes. Workaround: flat nav item (current). Backlog: revisit when RHOAI 3.5+ is available; `CommunityPluginsIcon.tsx` kept for reuse. [[project-dashboard-nav-limitation]] |
-| PR to charter repo's plugins.yaml | All of the above |
+| Item | Evidence |
+|------|----------|
+| Instance status polling | 10s `setInterval` in `HermesDeployerPage.tsx:55` |
+| Agent type registry | `AgentType` interface, `listAgentTypes()`, dropdown in create modal |
+
+### Backlog
+
+#### Architecture changes
+
+| Item | Status | Notes |
+|------|--------|-------|
+| **Replace direct K8s API with operator** | Decision pending — awaiting Guillaume's review | The frontend currently builds 6+ K8s manifests in TypeScript (`resources.ts`) and applies them via the dashboard K8s API proxy. This is brittle. Two options below. Helm chart for instances lives in repo either way. |
+
+**Decision: Instance deploy mechanism** (reviewer: @guimou)
+
+Option A — **Helm-based Operator (recommended)**
+- Write a `HermesInstance` CRD. UI creates/updates/deletes one CR. An operator reconciles it into all resources (Deployment, Service, Route, PVC, Secret).
+- Operator SDK Helm mode: the Helm chart IS the reconciliation logic. CR values become Helm values. No Go/Python code needed.
+- Status reported via CR `.status` — UI reads one object instead of polling multiple resources.
+- Cleanup via ownerReferences (cascade delete). Retries and drift reconciliation built in.
+- Trade-off: CRD needs cluster-admin to install. Operator is a second container to deploy.
+- This is the idiomatic RHOAI/OpenShift pattern (Model Serving, pipelines, etc. all work this way).
+
+Option B — **Backend service + Helm CLI**
+- Add a small API server to the manager pod. UI sends params, backend runs `helm install/upgrade/uninstall`.
+- User's bearer token forwarded from dashboard session, backend constructs kubeconfig per request.
+- Simpler to build initially. No CRD, no cluster-admin for install.
+- Trade-off: no drift reconciliation, no automatic retry. Helm binary adds ~50MB to image. Custom auth plumbing needed.
+| **Sandboxing: NetworkPolicy + hardening** | Not started | Phase 3 stepping stone. Default-deny egress NetworkPolicy with explicit allowlists for LLM API endpoints. Add seccomp profiles + read-only root filesystem to Hermes pods. No new cluster deps. |
+| **Sandboxing: Kata Containers opt-in** | Not started | Add `runtimeClassName` as a Helm value so users with OpenShift Sandboxed Containers operator can opt into VM-level isolation per instance. Low effort, high value. |
+| **Sandboxing: OpenShell** | Blocked | Privileged SCC still required (v0.0.79, Jul 2026). Issue #899 (Platform mode) and #981 (split-pod/gVisor) both open, no progress. Red Hat partnership announced at GTC 2026 but pre-product, no timeline. Revisit when either issue gets a PR. |
+
+#### Features
+
+| Item | Status | Blocked by |
+|------|--------|------------|
+| Display name for instances | Partial — `displayName` exists on `AgentType` but not as user-entered instance name (annotation-backed) | Nothing |
+| Project dropdown at top of page | Not started — namespace selection only in create modal, no NamespaceBar | Nothing |
+| Greyed-out "Pick a cluster model" UI | Not started — planned in Phase 1 but never implemented | Nothing |
+| Fix browser deps in hermes-sandbox | Unknown — needs container runtime test | Nothing |
+| RHOAI Model Serving integration | Not started | Cluster with served models |
+| Nav: "Community Plugins" section with icon | Blocked | RHOAI 3.5+ (3.4 drops `app.navigation/section` from external MF plugins) |
+| docs/README with screenshots | Blocked | Fresh cluster test |
+| Cluster test (Phase 2 verification) | Stale | Fresh RHOAI 3.4+ cluster |
+| PR to charter repo's plugins.yaml | Blocked | All of the above |
 
 ## Verification
 
