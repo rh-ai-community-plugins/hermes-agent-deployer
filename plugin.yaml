@@ -1,46 +1,62 @@
+# --- Plugin identity (required) ---
 name: hermes-agent-deployer
+displayName: Hermes Agent Deployer
+description: Deploy and manage Hermes Agent instances on OpenShift via RHOAI Dashboard
 version: 0.1.0
-description: Deploy and manage Hermes Agent instances in OpenShell sandboxes on OpenShift
 
+# --- Maintainer (required) ---
 maintainer:
   name: Erwan Granger
-  email: egranger@redhat.com
   github: erwangranger
 
+# --- RHOAI compatibility (required) ---
 rhoai_compatibility:
   min_version: "3.4.0"
   tested_versions: ["3.4.0"]
+
+# --- Deployment (required) ---
+deployment_model: per-project
 
 image:
   repository: quay.io/rh-ai-community-plugins/hermes-agent-deployer
   tag: "0.1.0"
 
-helm:
-  chart_path: chart/
+bff_image:
+  repository: quay.io/rh-ai-community-plugins/hermes-agent-deployer-bff
+  tag: "0.1.0"
 
-nav:
-  label: Hermes Agent Deployer
-  icon: puzzle-piece
-  url_pattern: /community/hermes-agent-deployer
+# --- Installation (required) ---
+install:
+  method: assisted
+  helm:
+    chart_path: chart/
+    registry: oci://quay.io/rh-ai-community-plugins/hermes-agent-deployer-chart
+  prerequisites:
+    - Access to a namespace with permission to create Deployments, Services, Routes, Secrets, PVCs, and ServiceAccounts
+  instructions: https://github.com/rh-ai-community-plugins/hermes-agent-deployer/blob/main/docs/deployment
 
-deployment_model: per-project
+# --- Dashboard integration (required) ---
+remote:
+  type: module-federation
+  spec:
+    name: hermesAgentDeployer
+    scope: hermesAgentDeployer
+    remoteEntry: https://<your-openshift-route>/remoteEntry.js
+    paths:
+      - type: route
+        path: /hermes-agent-deployer
+        extensions:
+          - hermesAgentDeployer/extensions
+      - type: icon
+        path: hermesAgentDeployer/Icon
 
+# --- RBAC (required) ---
 rbac:
   required_roles: []
   cluster_roles: false
 
-resources:
-  requests:
-    cpu: 50m
-    memory: 64Mi
-  limits:
-    cpu: 100m
-    memory: 128Mi
-
+# --- Support (optional) ---
 support:
-  docs: https://github.com/rh-ai-community-plugins/hermes-agent-deployer/docs
+  repo: https://github.com/rh-ai-community-plugins/hermes-agent-deployer
+  docs: https://github.com/rh-ai-community-plugins/hermes-agent-deployer/tree/main/docs
   issues: https://github.com/rh-ai-community-plugins/hermes-agent-deployer/issues
-
-screenshots:
-  - path: docs/screenshots/deployer-page.png
-    caption: Hermes Agent Deployer management page

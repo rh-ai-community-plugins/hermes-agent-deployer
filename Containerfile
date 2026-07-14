@@ -1,27 +1,26 @@
-FROM node:20-alpine AS builder
+ARG BUILD_IMAGE="registry.access.redhat.com/ubi9/nodejs-22:latest"
 
-WORKDIR /app
+# Build stage
+FROM ${BUILD_IMAGE} AS builder
 
-COPY package*.json ./
+COPY --chown=default:root package*.json ./
 RUN npm ci
 
-COPY . .
+COPY --chown=default:root . .
 RUN npm run build
 
-FROM registry.access.redhat.com/ubi9/nginx-122:latest
+# Production stage
+FROM registry.access.redhat.com/ubi9/nginx-124:latest
 
-COPY --from=builder /app/dist /opt/app-root/src
+# Copy built files
+COPY --from=builder --chown=1001:0 /opt/app-root/src/dist .
 
-COPY <<'EOF' /opt/app-root/etc/nginx.default.d/hermes.conf
-location / {
-    try_files $uri $uri/ /index.html;
-}
-
-location ~ ^/(remoteEntry\.js|__federation_expose_.*\.bundle\.js)$ {
-    add_header Access-Control-Allow-Origin *;
-}
-EOF
+# Add CORS header for Module Federation remote entry
+RUN echo $'location /remoteEntry.js {\n    add_header Access-Control-Allow-Origin *;\n}' \
+    > "${NGINX_DEFAULT_CONF_PATH}/cors.conf"
 
 EXPOSE 8080
+
+USER 1001:0
 
 CMD ["nginx", "-g", "daemon off;"]

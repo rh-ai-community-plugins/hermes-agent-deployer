@@ -53,7 +53,7 @@ export function buildPvc(req: CreateInstanceRequest) {
 }
 
 export function buildServiceAccount(req: CreateInstanceRequest) {
-  const sa: Record<string, unknown> = {
+  return {
     apiVersion: 'v1',
     kind: 'ServiceAccount',
     metadata: {
@@ -71,7 +71,6 @@ export function buildServiceAccount(req: CreateInstanceRequest) {
       }),
     },
   };
-  return sa;
 }
 
 export function buildDeployment(req: CreateInstanceRequest, defaults: InstanceDefaults) {

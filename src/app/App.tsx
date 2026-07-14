@@ -1,31 +1,19 @@
-import React, { useEffect, useState } from 'react';
-import { Routes, Route } from 'react-router-dom';
-import { Bullseye, Page, PageSection } from '@patternfly/react-core';
-import HermesDeployerPage from './components/HermesDeployerPage';
+import React from 'react';
+import { Routes, Route, Navigate } from 'react-router-dom';
+import CommunityBanner from './components/CommunityBanner';
+import HermesDeployerPage from './pages/HermesDeployerPage';
 
-const App: React.FC = () => {
-  const [isReady, setIsReady] = useState(false);
-
-  useEffect(() => {
-    setIsReady(true);
-  }, []);
-
-  if (!isReady) {
-    return (
-      <Page>
-        <PageSection>
-          <Bullseye>Loading...</Bullseye>
-        </PageSection>
-      </Page>
-    );
-  }
-
-  return (
-    <Routes>
-      <Route path="/" element={<HermesDeployerPage />} />
-      <Route path="/hermes-agent-deployer" element={<HermesDeployerPage />} />
-    </Routes>
-  );
-};
+const App: React.FC = () => (
+  <div className="community-plugin-layout">
+    {/* [SHARED] Do not remove — all community plugins must display the CommunityBanner */}
+    <CommunityBanner />
+    <div className="community-plugin-content">
+      <Routes>
+        <Route path="/" element={<Navigate to="instances" replace />} />
+        <Route path="instances/*" element={<HermesDeployerPage />} />
+      </Routes>
+    </div>
+  </div>
+);
 
 export default App;

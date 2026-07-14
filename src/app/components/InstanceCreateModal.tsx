@@ -18,8 +18,9 @@ import {
   HelperTextItem,
 } from '@patternfly/react-core';
 import { CreateInstanceRequest, AgentType } from '../types';
-import { listNamespaces, listAgentTypes } from '../api/instanceApi';
-import { getInstanceDefaults, InstanceDefaults } from '../api/config';
+import { listAgentTypes } from '../api/instanceApi';
+import { useNamespaces } from '../hooks/useNamespaces';
+import { useInstanceDefaults } from '../hooks/useInstanceDefaults';
 
 interface InstanceCreateModalProps {
   isOpen: boolean;
@@ -28,6 +29,8 @@ interface InstanceCreateModalProps {
 }
 
 const InstanceCreateModal: React.FC<InstanceCreateModalProps> = ({ isOpen, onClose, onSubmit }) => {
+  const { namespaces } = useNamespaces();
+  const { defaults } = useInstanceDefaults();
   const [name, setName] = useState('');
   const [namespace, setNamespace] = useState('');
   const [agentType, setAgentType] = useState('hermes');
@@ -36,23 +39,19 @@ const InstanceCreateModal: React.FC<InstanceCreateModalProps> = ({ isOpen, onClo
   const [apiKey, setApiKey] = useState('');
   const [pvcSize, setPvcSize] = useState('1Gi');
   const [oauthProxyEnabled, setOauthProxyEnabled] = useState(true);
-  const [namespaces, setNamespaces] = useState<string[]>([]);
   const [agentTypes, setAgentTypes] = useState<AgentType[]>([]);
-  const [defaults, setDefaults] = useState<InstanceDefaults | null>(null);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
-      listNamespaces().then(setNamespaces).catch(() => setNamespaces([]));
       listAgentTypes().then(setAgentTypes).catch(() => setAgentTypes([]));
-      getInstanceDefaults().then((d) => {
-        setDefaults(d);
-        setPvcSize(d.pvc.size);
-        setOauthProxyEnabled(d.oauthProxy.enabled);
-      });
+      if (defaults) {
+        setPvcSize(defaults.pvc.size);
+        setOauthProxyEnabled(defaults.oauthProxy.enabled);
+      }
     }
-  }, [isOpen]);
+  }, [isOpen, defaults]);
 
   const resetForm = () => {
     setName('');
