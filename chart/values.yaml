@@ -1,5 +1,5 @@
 nameOverride: "hermes-agent-deployer"
-fullnameOverride: ""
+fullnameOverride: "hermes-agent-deployer"
 
 image:
   repository: quay.io/rh-ai-community-plugins/hermes-agent-deployer
@@ -16,6 +16,7 @@ replicaCount: 1
 service:
   type: ClusterIP
   port: 8080
+  targetPort: 8080
 
 resources:
   limits:
@@ -65,7 +66,7 @@ bff:
   image:
     repository: quay.io/rh-ai-community-plugins/hermes-agent-deployer-bff
     tag: ""
-    pullPolicy: IfNotPresent
+    pullPolicy: Always
   service:
     type: ClusterIP
     port: 3000
