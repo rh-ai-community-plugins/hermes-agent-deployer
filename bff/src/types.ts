@@ -32,7 +32,7 @@ export interface K8sRoute {
   status?: { ingress?: Array<{ host: string }> };
 }
 
-export type InstanceStatus = 'Pending' | 'Starting' | 'Running' | 'Error' | 'Terminating' | 'Unknown';
+export type InstanceStatus = 'Pending' | 'Starting' | 'Running' | 'Stopped' | 'Error' | 'Terminating' | 'Unknown';
 
 export interface InstanceConfig {
   modelName: string;

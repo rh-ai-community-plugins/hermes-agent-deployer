@@ -6,6 +6,7 @@ const statusColor: Record<InstanceStatus, 'green' | 'blue' | 'red' | 'orange' | 
   Running: 'green',
   Starting: 'blue',
   Pending: 'blue',
+  Stopped: 'orange',
   Error: 'red',
   Terminating: 'orange',
   Unknown: 'grey',

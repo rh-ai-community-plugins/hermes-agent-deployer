@@ -47,7 +47,7 @@ function writeLastProject(project: string | null): void {
 
 const HermesDeployerPage: React.FC = () => {
   const { instances, loading, error: listError, refresh } = useInstances();
-  const { createInstance, deleteInstance, deleting, error: mutationError } = useInstanceMutation();
+  const { createInstance, deleteInstance, scaleInstance, deleting, error: mutationError } = useInstanceMutation();
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<HermesInstance | null>(null);
   const [selectedProject, setSelectedProject] = useState<string | null>(readLastProject);
@@ -66,6 +66,16 @@ const HermesDeployerPage: React.FC = () => {
 
   const handleCreate = async (req: CreateInstanceRequest) => {
     await createInstance(req);
+    refresh();
+  };
+
+  const handleStop = async (inst: HermesInstance) => {
+    await scaleInstance(inst.name, inst.namespace, 0);
+    refresh();
+  };
+
+  const handleStart = async (inst: HermesInstance) => {
+    await scaleInstance(inst.name, inst.namespace, 1);
     refresh();
   };
 
@@ -117,6 +127,8 @@ const HermesDeployerPage: React.FC = () => {
         <InstanceList
           instances={filteredInstances}
           onDelete={setDeleteTarget}
+          onStop={handleStop}
+          onStart={handleStart}
           onDeploy={() => setCreateModalOpen(true)}
           loading={loading}
         />

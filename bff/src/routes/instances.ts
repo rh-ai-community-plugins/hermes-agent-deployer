@@ -12,6 +12,9 @@ function isSystemNamespace(name: string): boolean {
 }
 
 function deploymentStatus(dep: K8sDeployment): InstanceStatus {
+  if (dep.status?.replicas === 0 || (!dep.status?.replicas && dep.status?.availableReplicas === undefined)) {
+    return 'Stopped';
+  }
   if (dep.status?.availableReplicas && dep.status.availableReplicas > 0) {
     return 'Running';
   }

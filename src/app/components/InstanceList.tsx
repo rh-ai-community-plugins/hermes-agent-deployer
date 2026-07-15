@@ -22,11 +22,13 @@ import StatusBadge from './StatusBadge';
 interface InstanceListProps {
   instances: HermesInstance[];
   onDelete: (instance: HermesInstance) => void;
+  onStop: (instance: HermesInstance) => void;
+  onStart: (instance: HermesInstance) => void;
   onDeploy: () => void;
   loading: boolean;
 }
 
-const InstanceList: React.FC<InstanceListProps> = ({ instances, onDelete, onDeploy, loading }) => {
+const InstanceList: React.FC<InstanceListProps> = ({ instances, onDelete, onStop, onStart, onDeploy, loading }) => {
   if (!loading && instances.length === 0) {
     return (
       <EmptyState titleText="No instances deployed" headingLevel="h4" icon={CubesIcon}>
@@ -42,24 +44,34 @@ const InstanceList: React.FC<InstanceListProps> = ({ instances, onDelete, onDepl
     );
   }
 
-  const rowActions = (instance: HermesInstance): IAction[] => [
-    {
-      title: 'Open',
-      onClick: () => {
-        if (instance.routeUrl) {
-          window.open(instance.routeUrl, '_blank');
-        }
+  const rowActions = (instance: HermesInstance): IAction[] => {
+    const isStopped = instance.status === 'Stopped';
+    return [
+      {
+        title: 'Open',
+        onClick: () => {
+          if (instance.routeUrl) {
+            window.open(instance.routeUrl, '_blank');
+          }
+        },
+        isDisabled: !instance.routeUrl || instance.status !== 'Running',
       },
-      isDisabled: !instance.routeUrl || instance.status !== 'Running',
-    },
-    {
-      isSeparator: true,
-    },
-    {
-      title: 'Delete',
-      onClick: () => onDelete(instance),
-    },
-  ];
+      { isSeparator: true },
+      ...(isStopped
+        ? [{ title: 'Start', onClick: () => onStart(instance) }]
+        : [{ title: 'Stop', onClick: () => onStop(instance), isDisabled: instance.status === 'Pending' }]),
+      {
+        title: 'Restart',
+        onClick: () => { onStop(instance); setTimeout(() => onStart(instance), 1000); },
+        isDisabled: isStopped || instance.status === 'Pending',
+      },
+      { isSeparator: true },
+      {
+        title: 'Delete',
+        onClick: () => onDelete(instance),
+      },
+    ];
+  };
 
   return (
     <Table aria-label="Hermes instances">

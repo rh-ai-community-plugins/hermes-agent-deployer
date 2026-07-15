@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { CreateInstanceRequest, HermesInstance } from '../types';
-import { createInstance as apiCreate, deleteInstance as apiDelete } from '../api/instanceApi';
+import { createInstance as apiCreate, deleteInstance as apiDelete, scaleInstance as apiScale } from '../api/instanceApi';
 
 export function useInstanceMutation() {
   const [creating, setCreating] = useState(false);
@@ -36,5 +36,16 @@ export function useInstanceMutation() {
     }
   }, []);
 
-  return { createInstance, deleteInstance, creating, deleting, error };
+  const scaleInstance = useCallback(async (name: string, namespace: string, replicas: number): Promise<void> => {
+    setError(null);
+    try {
+      await apiScale(name, namespace, replicas);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Failed to scale instance';
+      setError(msg);
+      throw e;
+    }
+  }, []);
+
+  return { createInstance, deleteInstance, scaleInstance, creating, deleting, error };
 }
