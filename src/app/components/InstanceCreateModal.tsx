@@ -26,13 +26,14 @@ interface InstanceCreateModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (req: CreateInstanceRequest) => Promise<void>;
+  selectedProject?: string | null;
 }
 
-const InstanceCreateModal: React.FC<InstanceCreateModalProps> = ({ isOpen, onClose, onSubmit }) => {
+const InstanceCreateModal: React.FC<InstanceCreateModalProps> = ({ isOpen, onClose, onSubmit, selectedProject }) => {
   const { namespaces } = useNamespaces();
   const { defaults } = useInstanceDefaults();
   const [name, setName] = useState('');
-  const [namespace, setNamespace] = useState('');
+  const [namespace, setNamespace] = useState(selectedProject ?? '');
   const [agentType, setAgentType] = useState('hermes');
   const [modelName, setModelName] = useState('');
   const [modelUrl, setModelUrl] = useState('');
@@ -50,8 +51,11 @@ const InstanceCreateModal: React.FC<InstanceCreateModalProps> = ({ isOpen, onClo
         setPvcSize(defaults.pvc.size);
         setOauthProxyEnabled(defaults.oauthProxy.enabled);
       }
+      if (selectedProject) {
+        setNamespace(selectedProject);
+      }
     }
-  }, [isOpen, defaults]);
+  }, [isOpen, defaults, selectedProject]);
 
   const resetForm = () => {
     setName('');

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import {
   PageSection,
   Title,
@@ -21,14 +21,48 @@ import { useInstances } from '../hooks/useInstances';
 import { useInstanceMutation } from '../hooks/useInstanceMutation';
 import InstanceList from '../components/InstanceList';
 import InstanceCreateModal from '../components/InstanceCreateModal';
+import { ProjectSelector } from '../components/ProjectSelector';
+
+const LAST_PROJECT_KEY = 'hermes-deployer.last-project';
+
+function readLastProject(): string | null {
+  try {
+    return localStorage.getItem(LAST_PROJECT_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function writeLastProject(project: string | null): void {
+  try {
+    if (project) {
+      localStorage.setItem(LAST_PROJECT_KEY, project);
+    } else {
+      localStorage.removeItem(LAST_PROJECT_KEY);
+    }
+  } catch {
+    // localStorage unavailable
+  }
+}
 
 const HermesDeployerPage: React.FC = () => {
   const { instances, loading, error: listError, refresh } = useInstances();
   const { createInstance, deleteInstance, deleting, error: mutationError } = useInstanceMutation();
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<HermesInstance | null>(null);
+  const [selectedProject, setSelectedProject] = useState<string | null>(readLastProject);
 
   const error = listError || mutationError;
+
+  const handleProjectSelect = useCallback((project: string | null) => {
+    setSelectedProject(project);
+    writeLastProject(project);
+  }, []);
+
+  const filteredInstances = useMemo(() => {
+    if (!selectedProject) return instances;
+    return instances.filter((i) => i.namespace === selectedProject);
+  }, [instances, selectedProject]);
 
   const handleCreate = async (req: CreateInstanceRequest) => {
     await createInstance(req);
@@ -46,12 +80,19 @@ const HermesDeployerPage: React.FC = () => {
     <PageSection>
       <Title headingLevel="h1" style={{ marginBottom: 16 }}>Hermes Agent Deployer</Title>
 
+      <div style={{ marginBottom: 16 }}>
+        <ProjectSelector
+          selectedProject={selectedProject}
+          onSelect={handleProjectSelect}
+        />
+      </div>
+
       {error && <Alert variant="danger" title={error} isInline style={{ marginBottom: 16 }} />}
 
       <Toolbar>
         <ToolbarContent>
           <ToolbarItem>
-            <Button variant="primary" onClick={() => setCreateModalOpen(true)}>
+            <Button variant="primary" onClick={() => setCreateModalOpen(true)} isDisabled={!selectedProject}>
               Deploy New Instance
             </Button>
           </ToolbarItem>
@@ -63,11 +104,18 @@ const HermesDeployerPage: React.FC = () => {
         </ToolbarContent>
       </Toolbar>
 
-      {loading ? (
+      {!selectedProject ? (
+        <Bullseye style={{ minHeight: 200 }}>
+          <div style={{ textAlign: 'center' }}>
+            <Title headingLevel="h3">Select a project</Title>
+            <p>Choose a project above to view and manage Hermes Agent instances.</p>
+          </div>
+        </Bullseye>
+      ) : loading ? (
         <Bullseye><Spinner /></Bullseye>
       ) : (
         <InstanceList
-          instances={instances}
+          instances={filteredInstances}
           onDelete={setDeleteTarget}
           onDeploy={() => setCreateModalOpen(true)}
           loading={loading}
@@ -78,6 +126,7 @@ const HermesDeployerPage: React.FC = () => {
         isOpen={createModalOpen}
         onClose={() => setCreateModalOpen(false)}
         onSubmit={handleCreate}
+        selectedProject={selectedProject}
       />
 
       {deleteTarget && (

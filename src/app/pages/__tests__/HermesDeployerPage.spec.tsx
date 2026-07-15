@@ -29,24 +29,39 @@ jest.mock('../../hooks/useInstanceDefaults', () => ({
   useInstanceDefaults: () => ({ defaults: null, loading: false, error: null }),
 }));
 
+jest.mock('../../hooks/useProjects', () => ({
+  useProjects: () => ({
+    projects: [
+      { metadata: { name: 'my-project', uid: '1' } },
+      { metadata: { name: 'other-project', uid: '2' } },
+    ],
+    loading: false,
+    error: null,
+    refresh: jest.fn(),
+  }),
+}));
+
 jest.mock('../../api/instanceApi', () => ({
   listAgentTypes: jest.fn().mockResolvedValue([]),
 }));
 
 describe('HermesDeployerPage', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
   it('renders the page title', () => {
     render(<HermesDeployerPage />);
     expect(screen.getByText('Hermes Agent Deployer')).toBeTruthy();
   });
 
-  it('renders the Deploy New Instance button', () => {
+  it('renders the project selector', () => {
     render(<HermesDeployerPage />);
-    const buttons = screen.getAllByText('Deploy New Instance');
-    expect(buttons.length).toBeGreaterThan(0);
+    expect(screen.getByLabelText('Select a project')).toBeTruthy();
   });
 
-  it('shows empty state when no instances', () => {
+  it('shows select prompt when no project chosen', () => {
     render(<HermesDeployerPage />);
-    expect(screen.getByText('No instances deployed')).toBeTruthy();
+    expect(screen.getByText('Select a project', { selector: 'h3' })).toBeTruthy();
   });
 });
