@@ -12,6 +12,7 @@ const mockDelete = deleteInstance as jest.MockedFunction<typeof deleteInstance>;
 
 const req = {
   name: 'test',
+  displayName: 'Test',
   namespace: 'ns',
   agentType: 'hermes',
   modelName: 'm',
@@ -23,6 +24,7 @@ const req = {
 
 const instance = {
   name: 'test',
+  displayName: 'Test',
   namespace: 'ns',
   agentType: 'hermes',
   status: 'Pending' as const,

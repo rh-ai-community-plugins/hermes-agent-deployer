@@ -13,6 +13,7 @@ Object.defineProperty(globalThis, 'crypto', {
 
 const req: CreateInstanceRequest = {
   name: 'test-agent',
+  displayName: 'Test Agent',
   namespace: 'my-ns',
   agentType: 'hermes',
   modelName: 'llama-3',

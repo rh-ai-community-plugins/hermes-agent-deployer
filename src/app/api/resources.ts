@@ -149,6 +149,7 @@ export function buildDeployment(req: CreateInstanceRequest, defaults: InstanceDe
       namespace: req.namespace,
       labels: LABELS(req.name, req.agentType),
       annotations: {
+        'hermes-agent-deployer/display-name': req.displayName,
         'hermes-agent-deployer/model-name': req.modelName,
         'hermes-agent-deployer/model-url': req.modelUrl,
         'hermes-agent-deployer/pvc-size': req.pvcSize,

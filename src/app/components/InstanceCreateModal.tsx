@@ -29,6 +29,15 @@ interface InstanceCreateModalProps {
   selectedProject?: string | null;
 }
 
+function toK8sName(input: string): string {
+  return input
+    .toLowerCase()
+    .replace(/[^a-z0-9-]/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 63);
+}
+
 const InstanceCreateModal: React.FC<InstanceCreateModalProps> = ({ isOpen, onClose, onSubmit, selectedProject }) => {
   const { namespaces } = useNamespaces();
   const { defaults } = useInstanceDefaults();
@@ -75,7 +84,8 @@ const InstanceCreateModal: React.FC<InstanceCreateModalProps> = ({ isOpen, onClo
   };
 
   const handleSubmit = async () => {
-    if (!name || !namespace || !modelName || !modelUrl || !apiKey) {
+    const k8sName = toK8sName(name);
+    if (!name || !k8sName || !namespace || !modelName || !modelUrl || !apiKey) {
       setError('All fields are required.');
       return;
     }
@@ -83,7 +93,8 @@ const InstanceCreateModal: React.FC<InstanceCreateModalProps> = ({ isOpen, onClo
     setError('');
     try {
       await onSubmit({
-        name,
+        name: k8sName,
+        displayName: name,
         namespace,
         agentType,
         modelName,
@@ -111,13 +122,15 @@ const InstanceCreateModal: React.FC<InstanceCreateModalProps> = ({ isOpen, onClo
               id="instance-name"
               value={name}
               onChange={(_e, val) => setName(val)}
-              placeholder="my-hermes-instance"
+              placeholder="TARS"
             />
-            <FormHelperText>
-              <HelperText>
-                <HelperTextItem>Lowercase, alphanumeric and hyphens only</HelperTextItem>
-              </HelperText>
-            </FormHelperText>
+            {name && toK8sName(name) && (
+              <FormHelperText>
+                <HelperText>
+                  <HelperTextItem>K8s name: hermes-{toK8sName(name)}</HelperTextItem>
+                </HelperText>
+              </FormHelperText>
+            )}
           </FormGroup>
 
           <FormGroup label="Namespace" isRequired fieldId="namespace">

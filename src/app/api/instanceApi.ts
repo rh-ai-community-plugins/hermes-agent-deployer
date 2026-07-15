@@ -38,8 +38,10 @@ function deploymentToInstance(dep: K8sDeployment, routeUrl: string): HermesInsta
     status = 'Pending';
   }
 
+  const instanceName = dep.metadata.labels['app.kubernetes.io/instance'] || dep.metadata.name.replace('hermes-', '');
   return {
-    name: dep.metadata.labels['app.kubernetes.io/instance'] || dep.metadata.name.replace('hermes-', ''),
+    name: instanceName,
+    displayName: ann['hermes-agent-deployer/display-name'] || instanceName,
     namespace: dep.metadata.namespace,
     agentType: dep.metadata.labels['hermes-agent-deployer/agent-type'] || 'hermes',
     status,
@@ -168,6 +170,7 @@ export async function createInstance(req: CreateInstanceRequest): Promise<Hermes
 
     return {
       name: req.name,
+      displayName: req.displayName,
       namespace: req.namespace,
       agentType: req.agentType,
       status: 'Pending',

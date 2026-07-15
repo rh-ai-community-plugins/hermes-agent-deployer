@@ -1,5 +1,6 @@
 export interface HermesInstance {
   name: string;
+  displayName: string;
   namespace: string;
   agentType: string;
   status: InstanceStatus;
@@ -19,6 +20,7 @@ export interface InstanceConfig {
 
 export interface CreateInstanceRequest {
   name: string;
+  displayName: string;
   namespace: string;
   agentType: string;
   modelName: string;

@@ -5,6 +5,7 @@ import { HermesInstance } from '../../types';
 
 const instance: HermesInstance = {
   name: 'agent-1',
+  displayName: 'Agent 1',
   namespace: 'test-ns',
   agentType: 'hermes',
   status: 'Running',
@@ -22,7 +23,7 @@ describe('InstanceList', () => {
 
   it('renders instance rows', () => {
     render(<InstanceList instances={[instance]} onDelete={jest.fn()} onDeploy={jest.fn()} loading={false} />);
-    expect(screen.getByText('agent-1')).toBeTruthy();
+    expect(screen.getByText('Agent 1')).toBeTruthy();
     expect(screen.getByText('test-ns')).toBeTruthy();
     expect(screen.getByText('Running')).toBeTruthy();
   });

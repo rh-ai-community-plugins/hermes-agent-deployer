@@ -43,6 +43,7 @@ export interface InstanceConfig {
 
 export interface HermesInstance {
   name: string;
+  displayName: string;
   namespace: string;
   agentType: string;
   status: InstanceStatus;

@@ -23,8 +23,10 @@ function deploymentStatus(dep: K8sDeployment): InstanceStatus {
 
 function toInstance(dep: K8sDeployment, routeUrl: string): HermesInstance {
   const ann = dep.metadata.annotations || {};
+  const instanceName = dep.metadata.labels?.['app.kubernetes.io/instance'] || dep.metadata.name.replace('hermes-', '');
   return {
-    name: dep.metadata.labels?.['app.kubernetes.io/instance'] || dep.metadata.name.replace('hermes-', ''),
+    name: instanceName,
+    displayName: ann['hermes-agent-deployer/display-name'] || instanceName,
     namespace: dep.metadata.namespace,
     agentType: dep.metadata.labels?.['hermes-agent-deployer/agent-type'] || 'hermes',
     status: deploymentStatus(dep),

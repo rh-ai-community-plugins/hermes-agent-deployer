@@ -76,7 +76,7 @@ const InstanceList: React.FC<InstanceListProps> = ({ instances, onDelete, onDepl
       <Tbody>
         {instances.map((inst) => (
           <Tr key={`${inst.namespace}/${inst.name}`}>
-            <Td dataLabel="Name">{inst.name}</Td>
+            <Td dataLabel="Name">{inst.displayName}</Td>
             <Td dataLabel="Namespace">{inst.namespace}</Td>
             <Td dataLabel="Agent Type">{inst.agentType}</Td>
             <Td dataLabel="Status"><StatusBadge status={inst.status} /></Td>

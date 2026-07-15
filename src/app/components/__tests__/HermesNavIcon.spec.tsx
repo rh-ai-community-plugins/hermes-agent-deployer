@@ -1,23 +1,15 @@
 import React from 'react';
-import { render } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import HermesNavIcon from '../HermesNavIcon';
 
 describe('HermesNavIcon', () => {
-  it('renders an SVG element', () => {
-    const { container } = render(<HermesNavIcon />);
-    const svg = container.querySelector('svg');
-    expect(svg).toBeTruthy();
+  it('renders the rocket emoji', () => {
+    render(<HermesNavIcon />);
+    expect(screen.getByRole('img', { name: /hermes agent deployer/i })).toBeTruthy();
   });
 
-  it('has the HA text', () => {
+  it('displays the emoji text', () => {
     const { container } = render(<HermesNavIcon />);
-    const text = container.querySelector('text');
-    expect(text?.textContent).toBe('HA');
-  });
-
-  it('uses the pf-v6-svg class', () => {
-    const { container } = render(<HermesNavIcon />);
-    const svg = container.querySelector('svg');
-    expect(svg?.classList.contains('pf-v6-svg')).toBe(true);
+    expect(container.textContent).toBe('🚀');
   });
 });
