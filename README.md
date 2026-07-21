@@ -18,18 +18,9 @@ Instance listing uses the BFF pattern (server-side aggregation). Create and dele
 
 ### Deploying on an Existing Dashboard
 
-**Prerequisites:** Helm 3.10+, `oc` CLI access, RHOAI 3.4+ installed.
+**Prerequisites:** Helm 3.10+, `oc` CLI logged in, RHOAI 3.4+ installed, python3.
 
 #### Step 1: Install the Plugin
-
-```bash
-helm install hermes-deployer oci://quay.io/rh-ai-community-plugins/hermes-agent-deployer-chart \
-  --version 0.1.0 \
-  --namespace hermes-deployer \
-  --create-namespace
-```
-
-Or from a local checkout:
 
 ```bash
 helm install hermes-deployer chart/ \
@@ -39,48 +30,28 @@ helm install hermes-deployer chart/ \
 
 This creates Deployment and Service resources for both the frontend and the BFF. To skip the BFF, add `--set bff.enabled=false`.
 
+Users deploying instances need `admin` or `edit` role in their target namespace.
+
 #### Step 2: Register with the Dashboard
 
 ```bash
-oc get configmap federation-config \
-  -n redhat-ods-applications \
-  -o jsonpath='{.data.module-federation-config\.json}' \
-| python3 -c "
-import json, sys
-config = json.load(sys.stdin)
-config.append({
-  'name': 'hermesAgentDeployer',
-  'backend': {
-    'remoteEntry': '/remoteEntry.js',
-    'authorize': False,
-    'tls': False,
-    'service': {
-      'name': 'hermes-agent-deployer',
-      'namespace': 'hermes-deployer',
-      'port': 8080
-    }
-  },
-  'proxyService': [{
-    'path': '/hermes-agent-deployer/api',
-    'pathRewrite': '/api',
-    'authorize': True,
-    'tls': False,
-    'service': {
-      'name': 'hermes-agent-deployer-bff',
-      'namespace': 'hermes-deployer',
-      'port': 3000
-    }
-  }]
-})
-print(json.dumps(config))
-" > /tmp/mf-config-extended.json
-
-oc set env deployment/rhods-dashboard \
-  -n redhat-ods-applications \
-  "MODULE_FEDERATION_CONFIG=$(cat /tmp/mf-config-extended.json)"
+./scripts/register-plugin.sh register
 ```
 
-Dashboard pods roll out automatically. After ~2 minutes, reload and find "Hermes Agent" under "Community plugins" in the sidebar.
+The script is idempotent — running it again is safe. It backs up the current config before making changes. Dashboard pods restart automatically (~2 minutes).
+
+To check registration status or unregister:
+
+```bash
+./scripts/register-plugin.sh status
+./scripts/register-plugin.sh unregister
+```
+
+If installing to a custom namespace, set `PLUGIN_NS`:
+
+```bash
+PLUGIN_NS=my-namespace ./scripts/register-plugin.sh register
+```
 
 #### Step 3: Deploy an Instance
 
@@ -146,9 +117,9 @@ podman build -t hermes-agent-deployer-bff:dev bff/
 
 See [`docs/`](docs/) for detailed guides:
 
+- **[OpenShift Deploy](docs/deployment/OPENSHIFT_DEPLOY.md)** — Production deployment, user permissions, troubleshooting
 - **[Local Setup](docs/development/LOCAL_SETUP.md)** — Development environment
 - **[Project Layout](docs/development/PROJECT_LAYOUT.md)** — Source code structure
-- **[OpenShift Deploy](docs/deployment/OPENSHIFT_DEPLOY.md)** — Production deployment
 
 ## License
 

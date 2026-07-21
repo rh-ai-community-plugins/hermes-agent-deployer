@@ -9,10 +9,12 @@ spec:
   selector:
     matchLabels:
       {{- include "hermes-agent-deployer.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: frontend
   template:
     metadata:
       labels:
         {{- include "hermes-agent-deployer.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: frontend
     spec:
       serviceAccountName: {{ include "hermes-agent-deployer.serviceAccountName" . }}
       securityContext:
