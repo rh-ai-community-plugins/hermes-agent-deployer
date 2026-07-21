@@ -30,7 +30,9 @@ interface K8sRoute {
 function deploymentToInstance(dep: K8sDeployment, routeUrl: string): HermesInstance {
   const ann = dep.metadata.annotations || {};
   let status: InstanceStatus = 'Unknown';
-  if (dep.status?.availableReplicas && dep.status.availableReplicas > 0) {
+  if (dep.status?.replicas === 0 || (!dep.status?.replicas && dep.status?.availableReplicas === undefined)) {
+    status = 'Stopped';
+  } else if (dep.status?.availableReplicas && dep.status.availableReplicas > 0) {
     status = 'Running';
   } else if (dep.status?.replicas && dep.status.replicas > 0) {
     status = 'Starting';
@@ -38,8 +40,10 @@ function deploymentToInstance(dep: K8sDeployment, routeUrl: string): HermesInsta
     status = 'Pending';
   }
 
+  const instanceName = dep.metadata.labels['app.kubernetes.io/instance'] || dep.metadata.name.replace('hermes-', '');
   return {
-    name: dep.metadata.labels['app.kubernetes.io/instance'] || dep.metadata.name.replace('hermes-', ''),
+    name: instanceName,
+    displayName: ann['hermes-agent-deployer/display-name'] || instanceName,
     namespace: dep.metadata.namespace,
     agentType: dep.metadata.labels['hermes-agent-deployer/agent-type'] || 'hermes',
     status,
@@ -168,6 +172,7 @@ export async function createInstance(req: CreateInstanceRequest): Promise<Hermes
 
     return {
       name: req.name,
+      displayName: req.displayName,
       namespace: req.namespace,
       agentType: req.agentType,
       status: 'Pending',
@@ -198,6 +203,18 @@ export async function deleteInstance(name: string, namespace: string): Promise<v
     k8sFetch(`/api/v1/namespaces/${namespace}/persistentvolumeclaims/${prefix}-data`, { method: 'DELETE' }).catch(() => {}),
   ];
   await Promise.all(deletions);
+}
+
+export async function scaleInstance(name: string, namespace: string, replicas: number): Promise<void> {
+  await k8sFetch(`/apis/apps/v1/namespaces/${namespace}/deployments/hermes-${name}/scale`, {
+    method: 'PUT',
+    body: JSON.stringify({
+      apiVersion: 'autoscaling/v1',
+      kind: 'Scale',
+      metadata: { name: `hermes-${name}`, namespace },
+      spec: { replicas },
+    }),
+  });
 }
 
 export async function listAgentTypes(): Promise<AgentType[]> {

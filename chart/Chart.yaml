@@ -1,5 +1,5 @@
 apiVersion: v2
-name: hermes-agent-deployer
+name: hermes-agent-deployer-chart
 description: A Helm chart for the Hermes Agent Deployer RHOAI community plugin
 type: application
 version: 0.1.0
@@ -10,7 +10,6 @@ keywords:
   - plugin
   - hermes
   - agent
-  - openshell
 home: https://github.com/rh-ai-community-plugins/hermes-agent-deployer
 sources:
   - https://github.com/rh-ai-community-plugins/hermes-agent-deployer

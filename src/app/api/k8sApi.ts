@@ -21,7 +21,7 @@ export async function k8sFetch<T>(path: string, options?: RequestInit): Promise<
 
 export async function listNamespaces(): Promise<string[]> {
   const result = await k8sFetch<{ items: Array<{ metadata: { name: string } }> }>(
-    '/api/v1/namespaces',
+    '/apis/project.openshift.io/v1/projects',
   );
   return result.items
     .map((ns) => ns.metadata.name)

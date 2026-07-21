@@ -15,6 +15,14 @@ module.exports = merge(common, {
   ],
   optimization: {
     runtimeChunk: false,
-    splitChunks: false,
+    splitChunks: {
+      cacheGroups: {
+        vendor: {
+          test: /[\\/]node_modules[\\/]/,
+          name: 'vendors',
+          chunks: 'all',
+        },
+      },
+    },
   },
 });

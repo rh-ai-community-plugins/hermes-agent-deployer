@@ -1,5 +1,6 @@
 export interface HermesInstance {
   name: string;
+  displayName: string;
   namespace: string;
   agentType: string;
   status: InstanceStatus;
@@ -8,7 +9,7 @@ export interface HermesInstance {
   config: InstanceConfig;
 }
 
-export type InstanceStatus = 'Pending' | 'Starting' | 'Running' | 'Error' | 'Terminating' | 'Unknown';
+export type InstanceStatus = 'Pending' | 'Starting' | 'Running' | 'Stopped' | 'Error' | 'Terminating' | 'Unknown';
 
 export interface InstanceConfig {
   modelName: string;
@@ -19,6 +20,7 @@ export interface InstanceConfig {
 
 export interface CreateInstanceRequest {
   name: string;
+  displayName: string;
   namespace: string;
   agentType: string;
   modelName: string;

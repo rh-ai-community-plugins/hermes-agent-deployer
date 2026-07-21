@@ -9,23 +9,25 @@ spec:
   selector:
     matchLabels:
       {{- include "hermes-agent-deployer.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: frontend
   template:
     metadata:
       labels:
         {{- include "hermes-agent-deployer.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: frontend
     spec:
       serviceAccountName: {{ include "hermes-agent-deployer.serviceAccountName" . }}
       securityContext:
-        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+        {{- toYaml .Values.securityContext | nindent 8 }}
       containers:
-        - name: {{ .Chart.Name }}
+        - name: {{ include "hermes-agent-deployer.name" . }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           securityContext:
             {{- toYaml .Values.containerSecurityContext | nindent 12 }}
           ports:
             - name: http
-              containerPort: {{ .Values.service.targetPort }}
+              containerPort: 8080
               protocol: TCP
           livenessProbe:
             httpGet:

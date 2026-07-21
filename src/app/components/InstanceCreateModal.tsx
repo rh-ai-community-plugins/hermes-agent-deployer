@@ -18,41 +18,53 @@ import {
   HelperTextItem,
 } from '@patternfly/react-core';
 import { CreateInstanceRequest, AgentType } from '../types';
-import { listNamespaces, listAgentTypes } from '../api/instanceApi';
-import { getInstanceDefaults, InstanceDefaults } from '../api/config';
+import { listAgentTypes } from '../api/instanceApi';
+import { useNamespaces } from '../hooks/useNamespaces';
+import { useInstanceDefaults } from '../hooks/useInstanceDefaults';
 
 interface InstanceCreateModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (req: CreateInstanceRequest) => Promise<void>;
+  selectedProject?: string | null;
 }
 
-const InstanceCreateModal: React.FC<InstanceCreateModalProps> = ({ isOpen, onClose, onSubmit }) => {
+function toK8sName(input: string): string {
+  return input
+    .toLowerCase()
+    .replace(/[^a-z0-9-]/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 63);
+}
+
+const InstanceCreateModal: React.FC<InstanceCreateModalProps> = ({ isOpen, onClose, onSubmit, selectedProject }) => {
+  const { namespaces } = useNamespaces();
+  const { defaults } = useInstanceDefaults();
   const [name, setName] = useState('');
-  const [namespace, setNamespace] = useState('');
+  const [namespace, setNamespace] = useState(selectedProject ?? '');
   const [agentType, setAgentType] = useState('hermes');
   const [modelName, setModelName] = useState('');
   const [modelUrl, setModelUrl] = useState('');
   const [apiKey, setApiKey] = useState('');
   const [pvcSize, setPvcSize] = useState('1Gi');
   const [oauthProxyEnabled, setOauthProxyEnabled] = useState(true);
-  const [namespaces, setNamespaces] = useState<string[]>([]);
   const [agentTypes, setAgentTypes] = useState<AgentType[]>([]);
-  const [defaults, setDefaults] = useState<InstanceDefaults | null>(null);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
-      listNamespaces().then(setNamespaces).catch(() => setNamespaces([]));
       listAgentTypes().then(setAgentTypes).catch(() => setAgentTypes([]));
-      getInstanceDefaults().then((d) => {
-        setDefaults(d);
-        setPvcSize(d.pvc.size);
-        setOauthProxyEnabled(d.oauthProxy.enabled);
-      });
+      if (defaults) {
+        setPvcSize(defaults.pvc.size);
+        setOauthProxyEnabled(defaults.oauthProxy.enabled);
+      }
+      if (selectedProject) {
+        setNamespace(selectedProject);
+      }
     }
-  }, [isOpen]);
+  }, [isOpen, defaults, selectedProject]);
 
   const resetForm = () => {
     setName('');
@@ -72,7 +84,8 @@ const InstanceCreateModal: React.FC<InstanceCreateModalProps> = ({ isOpen, onClo
   };
 
   const handleSubmit = async () => {
-    if (!name || !namespace || !modelName || !modelUrl || !apiKey) {
+    const k8sName = toK8sName(name);
+    if (!name || !k8sName || !namespace || !modelName || !modelUrl || !apiKey) {
       setError('All fields are required.');
       return;
     }
@@ -80,7 +93,8 @@ const InstanceCreateModal: React.FC<InstanceCreateModalProps> = ({ isOpen, onClo
     setError('');
     try {
       await onSubmit({
-        name,
+        name: k8sName,
+        displayName: name,
         namespace,
         agentType,
         modelName,
@@ -108,13 +122,15 @@ const InstanceCreateModal: React.FC<InstanceCreateModalProps> = ({ isOpen, onClo
               id="instance-name"
               value={name}
               onChange={(_e, val) => setName(val)}
-              placeholder="my-hermes-instance"
+              placeholder="TARS"
             />
-            <FormHelperText>
-              <HelperText>
-                <HelperTextItem>Lowercase, alphanumeric and hyphens only</HelperTextItem>
-              </HelperText>
-            </FormHelperText>
+            {name && toK8sName(name) && (
+              <FormHelperText>
+                <HelperText>
+                  <HelperTextItem>K8s name: hermes-{toK8sName(name)}</HelperTextItem>
+                </HelperText>
+              </FormHelperText>
+            )}
           </FormGroup>
 
           <FormGroup label="Namespace" isRequired fieldId="namespace">

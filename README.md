@@ -1,83 +1,125 @@
 # Hermes Agent Deployer
 
-RHOAI community plugin for deploying and managing [Hermes Agent](https://github.com/nousresearch/hermes-agent) instances on OpenShift via [OpenShell](https://github.com/NVIDIA/OpenShell) sandboxes.
+Community plugin for **Red Hat OpenShift AI (RHOAI) Dashboard** that deploys and manages [Hermes Agent](https://github.com/nousresearch/hermes-agent) instances on OpenShift. Uses Webpack 5 Module Federation for runtime dashboard integration.
 
-## Features
+## What It Does
 
-- Deploy Hermes Agent instances from the RHOAI dashboard sidebar
-- Select target namespace and configure model endpoint (name, URL, API key)
-- Each instance gets its own pod, PVC, and OpenShift Route with TLS
-- Multiple independent instances across namespaces (independent state via PVC)
-- OpenShift OAuth Proxy sidecar for access control (enabled by default, configurable)
-- Full Hermes WebUI (chat, workspace, skills, memory, cron) exposed via Route
-- Browser automation: Hermes instances include Chromium + Playwright for web browsing and screenshots
+Users deploy autonomous Hermes Agent instances from the RHOAI sidebar. Each instance gets its own pod, PVC, Route, and optional OAuth proxy — all created through the dashboard's K8s API proxy using the logged-in user's token.
 
-## Architecture
+| Component | Role |
+|-----------|------|
+| **Plugin frontend** | Nginx-served `remoteEntry.js` loaded by the dashboard at runtime |
+| **BFF service** | Node.js backend that aggregates instance listing across namespaces |
+| **Hermes instances** | Per-user pods with Hermes Agent + WebUI + Chromium/Playwright |
 
-Single-tier frontend-only deployment. The plugin UI integrates into the RHOAI dashboard via Module Federation and creates Kubernetes resources (Deployment, Service, Route, PVC, Secret) directly through the dashboard's K8s API proxy (`/api/k8s/`) using the user's token.
-
-Each deployed instance runs the `hermes-sandbox` container image (UBI9 + Hermes Agent + WebUI) with persistent storage for agent state. No separate backend container is needed.
+Instance listing uses the BFF pattern (server-side aggregation). Create and delete operations go directly through the dashboard's `/api/k8s/` proxy.
 
 ## Quick Start
 
-### Prerequisites
-- OpenShift cluster with RHOAI 3.4+ installed
-- kubectl/oc CLI access to the cluster
-- Helm 3.10+
+### Deploying on an Existing Dashboard
 
-### Install
+**Prerequisites:** Helm 3.10+, `oc` CLI logged in, RHOAI 3.4+ installed, python3.
+
+#### Step 1: Install the Plugin
 
 ```bash
-# Verify Helm chart
-helm template hermes-deployer chart/ | oc apply --dry-run=client -f -
-
-# Install the manager UI (Helm chart deploys only the frontend)
-helm install hermes-deployer chart/
-
-# Verify deployment
-oc rollout status deployment/hermes-deployer-hermes-agent-deployer
+helm install hermes-deployer chart/ \
+  --namespace hermes-deployer \
+  --create-namespace
 ```
 
-### Use
+This creates Deployment and Service resources for both the frontend and the BFF. To skip the BFF, add `--set bff.enabled=false`.
 
-1. Open the RHOAI dashboard
-2. Click "Hermes Agent Deployer" in the sidebar
-3. Select target project (namespace)
-4. Fill in model configuration:
-   - **Model Name**: e.g., "my-model"
-   - **API Base URL**: endpoint URL (e.g., `http://vllm:8000/v1` or `https://api.openai.com/v1`)
-   - **API Key**: (leave empty for local endpoints without auth)
-5. Click **Create**
-6. Wait for pod to start, then click the Route link to open Hermes WebUI
-7. Configure the model in the Hermes UI and start chatting
+Users deploying instances need `admin` or `edit` role in their target namespace.
+
+#### Step 2: Register with the Dashboard
+
+```bash
+./scripts/register-plugin.sh register
+```
+
+The script is idempotent — running it again is safe. It backs up the current config before making changes. Dashboard pods restart automatically (~2 minutes).
+
+To check registration status or unregister:
+
+```bash
+./scripts/register-plugin.sh status
+./scripts/register-plugin.sh unregister
+```
+
+If installing to a custom namespace, set `PLUGIN_NS`:
+
+```bash
+PLUGIN_NS=my-namespace ./scripts/register-plugin.sh register
+```
+
+#### Step 3: Deploy an Instance
+
+1. Open RHOAI dashboard → Community plugins → Hermes Agent → Instances
+2. Click **Deploy New Instance**
+3. Fill in: name, namespace, model endpoint (name, URL, API key)
+4. Click **Deploy**
+5. Wait for the pod to start, then click the Route link to open Hermes WebUI
 
 ### Configuration
 
-Edit `chart/values.yaml` before installing to customize:
-- `image`: Manager frontend image registry/tag
-- `instanceDefaults.hermesImage`: Hermes sandbox container image
-- `instanceDefaults.oauthProxy.enabled`: Enable/disable OAuth access control
-- `instanceDefaults.pvc.size`: Persistent volume size for agent state
-- `instanceDefaults.resources`: CPU/memory requests and limits
+Edit `chart/values.yaml` to customize defaults:
+
+- `instanceDefaults.hermesImage` — Hermes sandbox container image
+- `instanceDefaults.oauthProxy.enabled` — OAuth access control (default: true)
+- `instanceDefaults.pvc.size` — Persistent volume size for agent state
+- `instanceDefaults.resources` — CPU/memory requests and limits
 
 ## Development
 
 ```bash
+npm install              # Install plugin dependencies
+npm run start:dev        # Plugin dev server on port 9112
+```
+
+For BFF development:
+
+```bash
+cd bff
 npm install
-npm run start:dev    # dev server on localhost:9112
-npm run build        # production build
-npm test             # run tests
+K8S_API_BASE=$(oc whoami --show-server) npm run start:dev
+```
+
+### Build & Test
+
+```bash
+npm run build           # Production build to dist/
+npm test                # Run all tests
+npm run typecheck       # TypeScript type check
+npm run lint            # ESLint + markdownlint
+make validate           # All of the above
+```
+
+A `Makefile` provides unified operations across frontend and BFF.
+
+### Container Builds
+
+```bash
+podman build -t hermes-agent-deployer:dev .
+podman build -t hermes-agent-deployer-bff:dev bff/
 ```
 
 ## Container Images
 
-| Image | Role | Built From |
-|-------|------|-----------|
-| `quay.io/rh-ai-community-plugins/hermes-agent-deployer:0.1.0` | Plugin manager frontend (nginx + React bundle) | Containerfile (root) |
-| `quay.io/rh-ai-community-plugins/hermes-sandbox:0.1.0` | Hermes Agent + WebUI + Chromium/Playwright (per instance) | images/hermes-sandbox/Containerfile |
-| `quay.io/openshift/oauth-proxy:latest` | OAuth gateway sidecar (per instance, TLS reencrypt) | Red Hat registry |
+| Image | Registry | Role |
+|-------|----------|------|
+| `hermes-agent-deployer` | `quay.io/rh-ai-community-plugins/` | Plugin frontend (nginx) |
+| `hermes-agent-deployer-bff` | `quay.io/rh-ai-community-plugins/` | BFF service (Node.js) |
+| `hermes-sandbox` | `quay.io/rh-ai-community-plugins/` | Agent runtime per instance |
+| `ose-oauth-proxy-rhel9:v4.17` | `registry.redhat.io/openshift4/` | OAuth sidecar per instance |
 
-Each deployed instance includes both hermes-sandbox and oauth-proxy containers in a single pod.
+## Documentation
+
+See [`docs/`](docs/) for detailed guides:
+
+- **[OpenShift Deploy](docs/deployment/OPENSHIFT_DEPLOY.md)** — Production deployment, user permissions, troubleshooting
+- **[Local Setup](docs/development/LOCAL_SETUP.md)** — Development environment
+- **[Project Layout](docs/development/PROJECT_LAYOUT.md)** — Source code structure
 
 ## License
 

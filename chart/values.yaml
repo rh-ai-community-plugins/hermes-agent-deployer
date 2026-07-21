@@ -1,10 +1,10 @@
+nameOverride: "hermes-agent-deployer"
+fullnameOverride: "hermes-agent-deployer"
+
 image:
   repository: quay.io/rh-ai-community-plugins/hermes-agent-deployer
-  tag: latest
-  pullPolicy: Always
-
-nameOverride: ""
-fullnameOverride: ""
+  tag: ""
+  pullPolicy: IfNotPresent
 
 serviceAccount:
   create: true
@@ -18,9 +18,6 @@ service:
   port: 8080
   targetPort: 8080
 
-route:
-  enabled: true
-
 resources:
   limits:
     cpu: 100m
@@ -29,7 +26,7 @@ resources:
     cpu: 50m
     memory: 64Mi
 
-podSecurityContext:
+securityContext:
   runAsNonRoot: true
 
 containerSecurityContext:
@@ -37,11 +34,17 @@ containerSecurityContext:
   capabilities:
     drop:
       - ALL
+  seccompProfile:
+    type: RuntimeDefault
+
+route:
+  enabled: true
 
 nodeSelector: {}
 tolerations: []
 affinity: {}
 
+# Instance defaults served as /config.json to the frontend
 instanceDefaults:
   hermesImage: quay.io/rh-ai-community-plugins/hermes-sandbox:0.1.0
   oauthProxy:
@@ -56,3 +59,21 @@ instanceDefaults:
     limits:
       cpu: "1"
       memory: 1Gi
+
+# BFF service
+bff:
+  enabled: true
+  image:
+    repository: quay.io/rh-ai-community-plugins/hermes-agent-deployer-bff
+    tag: ""
+    pullPolicy: Always
+  service:
+    type: ClusterIP
+    port: 3000
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 50m
+      memory: 128Mi
