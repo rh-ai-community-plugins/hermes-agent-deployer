@@ -33,9 +33,15 @@ function deploymentToInstance(dep: K8sDeployment, routeUrl: string): HermesInsta
   if (dep.status?.availableReplicas && dep.status.availableReplicas > 0) {
     status = 'Running';
   } else if (dep.status?.replicas && dep.status.replicas > 0) {
-    status = 'Starting';
+    const hasFailure = (dep.status.conditions || []).some(c =>
+      (c.type === 'Available' || c.type === 'Progressing') && c.status === 'False',
+    );
+    status = hasFailure ? 'Error' : 'Starting';
   } else {
-    status = 'Pending';
+    const hasFailure = (dep.status?.conditions || []).some(c =>
+      c.type === 'Available' && c.status === 'False',
+    );
+    status = hasFailure ? 'Error' : 'Pending';
   }
 
   return {
@@ -188,14 +194,14 @@ export async function createInstance(req: CreateInstanceRequest): Promise<Hermes
 
 export async function deleteInstance(name: string, namespace: string): Promise<void> {
   const prefix = `hermes-${name}`;
-  const deletions = [
-    k8sFetch(`/apis/route.openshift.io/v1/namespaces/${namespace}/routes/${prefix}`, { method: 'DELETE' }).catch(() => {}),
-    k8sFetch(`/api/v1/namespaces/${namespace}/services/${prefix}`, { method: 'DELETE' }).catch(() => {}),
-    k8sFetch(`/apis/apps/v1/namespaces/${namespace}/deployments/${prefix}`, { method: 'DELETE' }).catch(() => {}),
-    k8sFetch(`/api/v1/namespaces/${namespace}/serviceaccounts/${prefix}`, { method: 'DELETE' }).catch(() => {}),
-    k8sFetch(`/api/v1/namespaces/${namespace}/secrets/${prefix}-credentials`, { method: 'DELETE' }).catch(() => {}),
-    k8sFetch(`/api/v1/namespaces/${namespace}/secrets/${prefix}-tls`, { method: 'DELETE' }).catch(() => {}),
-    k8sFetch(`/api/v1/namespaces/${namespace}/persistentvolumeclaims/${prefix}-data`, { method: 'DELETE' }).catch(() => {}),
+  const deletions: Promise<void>[] = [
+    k8sFetch(`/apis/route.openshift.io/v1/namespaces/${namespace}/routes/${prefix}`, { method: 'DELETE' }).then(() => {}).catch(() => {}),
+    k8sFetch(`/api/v1/namespaces/${namespace}/services/${prefix}`, { method: 'DELETE' }).then(() => {}).catch(() => {}),
+    k8sFetch(`/apis/apps/v1/namespaces/${namespace}/deployments/${prefix}`, { method: 'DELETE' }).then(() => {}).catch(() => {}),
+    k8sFetch(`/api/v1/namespaces/${namespace}/serviceaccounts/${prefix}`, { method: 'DELETE' }).then(() => {}).catch(() => {}),
+    k8sFetch(`/api/v1/namespaces/${namespace}/secrets/${prefix}-credentials`, { method: 'DELETE' }).then(() => {}).catch(() => {}),
+    k8sFetch(`/api/v1/namespaces/${namespace}/secrets/${prefix}-tls`, { method: 'DELETE' }).then(() => {}).catch(() => {}),
+    k8sFetch(`/api/v1/namespaces/${namespace}/persistentvolumeclaims/${prefix}-data`, { method: 'DELETE' }).then(() => {}).catch(() => {}),
   ];
   await Promise.all(deletions);
 }

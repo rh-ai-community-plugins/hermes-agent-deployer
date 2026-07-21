@@ -1,7 +1,7 @@
 image:
   repository: quay.io/rh-ai-community-plugins/hermes-agent-deployer
-  tag: latest
-  pullPolicy: Always
+  tag: "0.1.0"
+  pullPolicy: IfNotPresent
 
 nameOverride: ""
 fullnameOverride: ""

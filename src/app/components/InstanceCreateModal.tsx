@@ -21,6 +21,10 @@ import { CreateInstanceRequest, AgentType } from '../types';
 import { listNamespaces, listAgentTypes } from '../api/instanceApi';
 import { getInstanceDefaults, InstanceDefaults } from '../api/config';
 
+const K8S_NAME_REGEX = /^[a-z0-9]([-a-z0-9]*[a-z0-9])?$/;
+const MAX_NAME_LENGTH = 63;
+const MAX_API_KEY_LENGTH = 1000;
+
 interface InstanceCreateModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -34,6 +38,7 @@ const InstanceCreateModal: React.FC<InstanceCreateModalProps> = ({ isOpen, onClo
   const [modelName, setModelName] = useState('');
   const [modelUrl, setModelUrl] = useState('');
   const [apiKey, setApiKey] = useState('');
+  const [apiKeyWarning, setApiKeyWarning] = useState('');
   const [pvcSize, setPvcSize] = useState('1Gi');
   const [oauthProxyEnabled, setOauthProxyEnabled] = useState(true);
   const [namespaces, setNamespaces] = useState<string[]>([]);
@@ -41,6 +46,8 @@ const InstanceCreateModal: React.FC<InstanceCreateModalProps> = ({ isOpen, onClo
   const [defaults, setDefaults] = useState<InstanceDefaults | null>(null);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [nameError, setNameError] = useState('');
+  const [urlError, setUrlError] = useState('');
 
   useEffect(() => {
     if (isOpen) {
@@ -61,9 +68,12 @@ const InstanceCreateModal: React.FC<InstanceCreateModalProps> = ({ isOpen, onClo
     setModelName('');
     setModelUrl('');
     setApiKey('');
+    setApiKeyWarning('');
     setPvcSize(defaults?.pvc.size ?? '1Gi');
     setOauthProxyEnabled(defaults?.oauthProxy.enabled ?? true);
     setError('');
+    setNameError('');
+    setUrlError('');
   };
 
   const handleClose = () => {
@@ -71,10 +81,40 @@ const InstanceCreateModal: React.FC<InstanceCreateModalProps> = ({ isOpen, onClo
     onClose();
   };
 
+  const handleNameChange = (_e: React.FormEvent<HTMLInputElement>, val: string) => {
+    const trimmed = val.slice(0, MAX_NAME_LENGTH);
+    if (trimmed && !K8S_NAME_REGEX.test(trimmed)) {
+      setNameError('Must be lowercase alphanumeric or hyphens, max 63 characters');
+    } else {
+      setNameError('');
+    }
+    setName(trimmed);
+  };
+
+  const handleModelUrlChange = (_e: React.FormEvent<HTMLInputElement>, val: string) => {
+    setModelUrl(val);
+    if (val && !val.startsWith('http://') && !val.startsWith('https://')) {
+      setUrlError('Must start with http:// or https://');
+    } else {
+      setUrlError('');
+    }
+  };
+
   const handleSubmit = async () => {
     if (!name || !namespace || !modelName || !modelUrl || !apiKey) {
       setError('All fields are required.');
       return;
+    }
+    if (nameError) {
+      setError('Invalid instance name. Must be lowercase alphanumeric or hyphens, max 63 characters.');
+      return;
+    }
+    if (urlError) {
+      setError('Invalid model URL format.');
+      return;
+    }
+    if (apiKey.length > MAX_API_KEY_LENGTH) {
+      setApiKeyWarning('API key may be truncated for security.');
     }
     setSubmitting(true);
     setError('');
@@ -107,13 +147,24 @@ const InstanceCreateModal: React.FC<InstanceCreateModalProps> = ({ isOpen, onClo
             <TextInput
               id="instance-name"
               value={name}
-              onChange={(_e, val) => setName(val)}
+              onChange={handleNameChange}
               placeholder="my-hermes-instance"
+              validated={nameError ? 'warning' : 'default'}
             />
             <FormHelperText>
-              <HelperText>
-                <HelperTextItem>Lowercase, alphanumeric and hyphens only</HelperTextItem>
-              </HelperText>
+              {nameError ? (
+                <HelperText>
+                  <HelperTextItem variant="warning">{nameError}</HelperTextItem>
+                </HelperText>
+              ) : name ? (
+                <HelperText>
+                  <HelperTextItem>{name.length}/${MAX_NAME_LENGTH} characters</HelperTextItem>
+                </HelperText>
+              ) : (
+                <HelperText>
+                  <HelperTextItem>Lowercase, alphanumeric and hyphens only</HelperTextItem>
+                </HelperText>
+              )}
             </FormHelperText>
           </FormGroup>
 
@@ -147,9 +198,17 @@ const InstanceCreateModal: React.FC<InstanceCreateModalProps> = ({ isOpen, onClo
             <TextInput
               id="model-url"
               value={modelUrl}
-              onChange={(_e, val) => setModelUrl(val)}
+              onChange={handleModelUrlChange}
               placeholder="https://vllm-route.apps.cluster.local/v1"
+              validated={urlError ? 'warning' : 'default'}
             />
+            {urlError && (
+              <FormHelperText>
+                <HelperText>
+                  <HelperTextItem variant="warning">{urlError}</HelperTextItem>
+                </HelperText>
+              </FormHelperText>
+            )}
           </FormGroup>
 
           <FormGroup label="API key" isRequired fieldId="api-key">
@@ -157,8 +216,22 @@ const InstanceCreateModal: React.FC<InstanceCreateModalProps> = ({ isOpen, onClo
               id="api-key"
               type="password"
               value={apiKey}
-              onChange={(_e, val) => setApiKey(val)}
+              onChange={(_e, val) => {
+                setApiKey(val.slice(0, MAX_API_KEY_LENGTH));
+                if (val.length > MAX_API_KEY_LENGTH) {
+                  setApiKeyWarning(`API keys longer than ${MAX_API_KEY_LENGTH} characters will be truncated`);
+                } else {
+                  setApiKeyWarning('');
+                }
+              }}
             />
+            {apiKeyWarning && (
+              <FormHelperText>
+                <HelperText>
+                  <HelperTextItem variant="warning">{apiKeyWarning}</HelperTextItem>
+                </HelperText>
+              </FormHelperText>
+            )}
           </FormGroup>
 
           <FormGroup label="PVC size" fieldId="pvc-size">

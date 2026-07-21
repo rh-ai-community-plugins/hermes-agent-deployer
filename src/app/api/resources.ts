@@ -53,7 +53,7 @@ export function buildPvc(req: CreateInstanceRequest) {
 }
 
 export function buildServiceAccount(req: CreateInstanceRequest) {
-  const sa: Record<string, unknown> = {
+  const sa = {
     apiVersion: 'v1',
     kind: 'ServiceAccount',
     metadata: {

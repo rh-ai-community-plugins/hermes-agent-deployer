@@ -26,7 +26,7 @@ const InstanceDetail: React.FC<InstanceDetailProps> = ({ instance, onDelete, onC
         <Title headingLevel="h3">{instance.name}</Title>
       </FlexItem>
       <FlexItem>
-        <Button variant="link" onClick={onClose}>Close</Button>
+        <Button variant="link" onClick={onClose}>← Back to list</Button>
       </FlexItem>
     </Flex>
     <Divider style={{ margin: '16px 0' }} />
