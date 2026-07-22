@@ -22,7 +22,7 @@ const ANNOTATIONS = (req: CreateInstanceRequest, defaults: InstanceDefaults) => 
   'hermes-agent-deployer/oauth-proxy': String(req.oauthProxyEnabled),
   ...(defaults.openshell?.enabled && {
     'hermes-agent-deployer/openshell': 'true',
-    'hermes-agent-deployer/openshell-policy': defaults.openshell.networkPolicyTier,
+    'hermes-agent-deployer/openshell-policy': req.networkPolicyTier || defaults.openshell.networkPolicyTier,
   }),
 });
 

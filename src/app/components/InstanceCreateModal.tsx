@@ -21,6 +21,7 @@ import { CreateInstanceRequest, AgentType } from '../types';
 import { listAgentTypes } from '../api/instanceApi';
 import { useNamespaces } from '../hooks/useNamespaces';
 import { useInstanceDefaults } from '../hooks/useInstanceDefaults';
+import PolicySelector from './PolicySelector';
 
 interface InstanceCreateModalProps {
   isOpen: boolean;
@@ -49,6 +50,7 @@ const InstanceCreateModal: React.FC<InstanceCreateModalProps> = ({ isOpen, onClo
   const [apiKey, setApiKey] = useState('');
   const [pvcSize, setPvcSize] = useState('1Gi');
   const [oauthProxyEnabled, setOauthProxyEnabled] = useState(true);
+  const [networkPolicyTier, setNetworkPolicyTier] = useState('standard');
   const [agentTypes, setAgentTypes] = useState<AgentType[]>([]);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -59,6 +61,9 @@ const InstanceCreateModal: React.FC<InstanceCreateModalProps> = ({ isOpen, onClo
       if (defaults) {
         setPvcSize(defaults.pvc.size);
         setOauthProxyEnabled(defaults.oauthProxy.enabled);
+        if (defaults.openshell?.networkPolicyTier) {
+          setNetworkPolicyTier(defaults.openshell.networkPolicyTier);
+        }
       }
       if (selectedProject) {
         setNamespace(selectedProject);
@@ -75,6 +80,7 @@ const InstanceCreateModal: React.FC<InstanceCreateModalProps> = ({ isOpen, onClo
     setApiKey('');
     setPvcSize(defaults?.pvc.size ?? '1Gi');
     setOauthProxyEnabled(defaults?.oauthProxy.enabled ?? true);
+    setNetworkPolicyTier(defaults?.openshell?.networkPolicyTier ?? 'standard');
     setError('');
   };
 
@@ -102,6 +108,7 @@ const InstanceCreateModal: React.FC<InstanceCreateModalProps> = ({ isOpen, onClo
         apiKey,
         pvcSize,
         oauthProxyEnabled,
+        ...(defaults?.openshell?.enabled && { networkPolicyTier }),
       });
       handleClose();
     } catch (err) {
@@ -193,6 +200,10 @@ const InstanceCreateModal: React.FC<InstanceCreateModalProps> = ({ isOpen, onClo
               onChange={(_e, val) => setOauthProxyEnabled(val)}
             />
           </FormGroup>
+
+          {defaults?.openshell?.enabled && (
+            <PolicySelector value={networkPolicyTier} onChange={setNetworkPolicyTier} />
+          )}
         </Form>
       </ModalBody>
       <ModalFooter>

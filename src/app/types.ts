@@ -28,6 +28,7 @@ export interface CreateInstanceRequest {
   apiKey: string;
   pvcSize: string;
   oauthProxyEnabled: boolean;
+  networkPolicyTier?: string;
 }
 
 export interface AgentType {
