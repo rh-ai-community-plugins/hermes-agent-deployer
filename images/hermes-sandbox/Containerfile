@@ -4,15 +4,34 @@ USER 0
 
 RUN dnf install -y --nodocs \
         git nodejs npm \
-        nss atk cups-libs libdrm libXcomposite libXdamage libXrandr \
-        mesa-libgbm pango alsa-lib \
+        nss nspr \
+        atk at-spi2-atk \
+        cups-libs \
+        libdrm \
+        libxkbcommon \
+        libXcomposite libXdamage libXrandr libXext libXfixes \
+        libXi libXtst libXcursor libX11-xcb \
+        mesa-libgbm \
+        pango cairo \
+        alsa-lib \
+        dbus-libs \
     && dnf clean all
 
-RUN pip install --no-cache-dir hermes-agent playwright
+ARG HERMES_AGENT_VERSION=0.19.0
+ARG PLAYWRIGHT_VERSION=1.61.0
+RUN pip install --no-cache-dir \
+        hermes-agent==${HERMES_AGENT_VERSION} \
+        playwright==${PLAYWRIGHT_VERSION}
 
 ENV PLAYWRIGHT_BROWSERS_PATH=/opt/playwright-browsers
 RUN playwright install chromium && \
-    chmod -R o+rx /opt/playwright-browsers
+    chgrp -R 0 /opt/playwright-browsers && \
+    chmod -R g=u /opt/playwright-browsers
+
+RUN CHROME_BIN=$(find /opt/playwright-browsers -name "chrome" -o -name "headless_shell" 2>/dev/null | head -1) && \
+    echo "Chromium binary: ${CHROME_BIN}" && \
+    "${CHROME_BIN}" --version --no-sandbox --headless --disable-gpu 2>&1 || \
+    (echo "FATAL: Chromium smoke test failed" && exit 1)
 
 RUN git clone --depth 1 https://github.com/nesquena/hermes-webui.git /opt/hermes-webui && \
     cd /opt/hermes-webui && \
@@ -21,14 +40,15 @@ RUN git clone --depth 1 https://github.com/nesquena/hermes-webui.git /opt/hermes
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
-RUN mkdir -p /home/hermes/.hermes /tmp/hermes && \
+RUN mkdir -p /home/hermes/.hermes /home/hermes/.cache /tmp/hermes && \
     chgrp -R 0 /home/hermes /opt/hermes-webui /tmp/hermes && \
     chmod -R g=u /home/hermes /opt/hermes-webui /tmp/hermes
 
 ENV HOME=/home/hermes \
     HERMES_WEBUI_PORT=8080 \
     HERMES_WEBUI_HOST=0.0.0.0 \
-    HERMES_WEBUI_STATE_DIR=/home/hermes/.hermes/webui
+    HERMES_WEBUI_STATE_DIR=/home/hermes/.hermes/webui \
+    AGENT_BROWSER_ARGS="--no-sandbox,--disable-dev-shm-usage,--disable-gpu,--disable-setuid-sandbox"
 
 EXPOSE 8080
 
