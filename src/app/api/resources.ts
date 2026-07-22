@@ -14,12 +14,16 @@ const LABELS = (name: string, agentType: string) => ({
   'hermes-agent-deployer/agent-type': agentType,
 });
 
-const ANNOTATIONS = (req: CreateInstanceRequest) => ({
+const ANNOTATIONS = (req: CreateInstanceRequest, defaults: InstanceDefaults) => ({
   'hermes-agent-deployer/display-name': req.displayName,
   'hermes-agent-deployer/model-name': req.modelName,
   'hermes-agent-deployer/model-url': req.modelUrl,
   'hermes-agent-deployer/pvc-size': req.pvcSize,
   'hermes-agent-deployer/oauth-proxy': String(req.oauthProxyEnabled),
+  ...(defaults.openshell?.enabled && {
+    'hermes-agent-deployer/openshell': 'true',
+    'hermes-agent-deployer/openshell-policy': defaults.openshell.networkPolicyTier,
+  }),
 });
 
 export function buildSecret(req: CreateInstanceRequest) {
@@ -134,7 +138,7 @@ export function buildSandbox(req: CreateInstanceRequest, defaults: InstanceDefau
       name: `hermes-${req.name}`,
       namespace: req.namespace,
       labels: LABELS(req.name, req.agentType),
-      annotations: ANNOTATIONS(req),
+      annotations: ANNOTATIONS(req, defaults),
     },
     spec: {
       operatingMode: 'Running',

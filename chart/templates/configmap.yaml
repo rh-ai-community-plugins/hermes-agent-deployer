@@ -15,5 +15,9 @@ data:
       "pvc": {
         "size": {{ .Values.instanceDefaults.pvc.size | quote }}
       },
-      "resources": {{- .Values.instanceDefaults.resources | toJson | nindent 8 }}
+      "resources": {{- .Values.instanceDefaults.resources | toJson | nindent 8 }},
+      "openshell": {
+        "enabled": {{ .Values.openshell.enabled }},
+        "networkPolicyTier": {{ .Values.openshell.networkPolicy.tier | quote }}
+      }
     }

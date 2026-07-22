@@ -60,6 +60,18 @@ instanceDefaults:
       cpu: "1"
       memory: 1Gi
 
+# OpenShell sandbox security (optional)
+# Requires: OpenShell gateway deployed, Agent Sandbox CRDs installed,
+# privileged SCC granted to openshell-sandbox SA
+openshell:
+  enabled: false
+  gateway:
+    namespace: openshell
+  networkPolicy:
+    tier: standard
+  # OCP apps domain for policy template rendering (e.g., apps.cluster.example.com)
+  ocpAppsDomain: ""
+
 # BFF service
 bff:
   enabled: true

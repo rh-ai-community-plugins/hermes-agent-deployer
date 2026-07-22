@@ -1,0 +1,19 @@
+{{- if .Values.openshell.enabled }}
+# OpenShell sandbox pods require privileged SCC for the supervisor
+# (Landlock filesystem isolation, network namespace setup).
+# This binds the SCC to the openshell-sandbox SA in the gateway namespace.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "hermes-agent-deployer.fullname" . }}-openshell-scc
+  labels:
+    {{- include "hermes-agent-deployer.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:openshift:scc:privileged
+subjects:
+  - kind: ServiceAccount
+    name: openshell-sandbox
+    namespace: {{ .Values.openshell.gateway.namespace }}
+{{- end }}
