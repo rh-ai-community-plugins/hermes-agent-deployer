@@ -89,6 +89,7 @@ export function buildDeployment(req: CreateInstanceRequest, defaults: InstanceDe
       volumeMounts: [
         { name: 'hermes-data', mountPath: '/home/hermes' },
         { name: 'tmp', mountPath: '/tmp' },
+        { name: 'dshm', mountPath: '/dev/shm' },
       ],
       resources: defaults.resources,
       securityContext: {
@@ -115,6 +116,7 @@ export function buildDeployment(req: CreateInstanceRequest, defaults: InstanceDe
       persistentVolumeClaim: { claimName: `hermes-${req.name}-data` },
     },
     { name: 'tmp', emptyDir: {} },
+    { name: 'dshm', emptyDir: { medium: 'Memory', sizeLimit: '256Mi' } },
   ];
 
   if (req.oauthProxyEnabled) {
