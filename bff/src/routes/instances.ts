@@ -1,8 +1,9 @@
 import { Request, Response } from 'express';
 import { k8sRequest } from '../utils/k8sClient';
-import { K8sDeployment, K8sRoute, K8sList, HermesInstance, InstanceStatus, InstancesResponse } from '../types';
+import { K8sSandbox, K8sRoute, K8sList, HermesInstance, InstanceStatus, InstancesResponse } from '../types';
 
 const LABEL_SELECTOR = 'app.kubernetes.io/managed-by=hermes-agent-deployer';
+const SANDBOX_API = 'agents.x-k8s.io/v1beta1';
 const SYSTEM_NS_PREFIXES = ['openshift-', 'kube-', 'default', 'redhat-'];
 
 function isSystemNamespace(name: string): boolean {
@@ -11,30 +12,42 @@ function isSystemNamespace(name: string): boolean {
   );
 }
 
-function deploymentStatus(dep: K8sDeployment): InstanceStatus {
-  if (dep.status?.replicas === 0 || (!dep.status?.replicas && dep.status?.availableReplicas === undefined)) {
-    return 'Stopped';
+function sandboxStatus(sandbox: K8sSandbox): InstanceStatus {
+  const conditions = sandbox.status?.conditions || [];
+  const mode = sandbox.spec?.operatingMode;
+
+  const ready = conditions.find((c) => c.type === 'Ready');
+  const finished = conditions.find((c) => c.type === 'Finished');
+
+  if (mode === 'Suspended' || ready?.reason === 'SandboxSuspended') {
+    return 'Suspended';
   }
-  if (dep.status?.availableReplicas && dep.status.availableReplicas > 0) {
+  if (finished?.status === 'True' && finished.reason === 'PodFailed') {
+    return 'Error';
+  }
+  if (ready?.status === 'True') {
     return 'Running';
   }
-  if (dep.status?.replicas && dep.status.replicas > 0) {
+  if (ready?.status === 'False' && ready.reason === 'DependenciesNotReady') {
+    return 'Starting';
+  }
+  if (conditions.length > 0) {
     return 'Starting';
   }
   return 'Pending';
 }
 
-function toInstance(dep: K8sDeployment, routeUrl: string): HermesInstance {
-  const ann = dep.metadata.annotations || {};
-  const instanceName = dep.metadata.labels?.['app.kubernetes.io/instance'] || dep.metadata.name.replace('hermes-', '');
+function toInstance(sandbox: K8sSandbox, routeUrl: string): HermesInstance {
+  const ann = sandbox.metadata.annotations || {};
+  const instanceName = sandbox.metadata.labels?.['app.kubernetes.io/instance'] || sandbox.metadata.name.replace('hermes-', '');
   return {
     name: instanceName,
     displayName: ann['hermes-agent-deployer/display-name'] || instanceName,
-    namespace: dep.metadata.namespace,
-    agentType: dep.metadata.labels?.['hermes-agent-deployer/agent-type'] || 'hermes',
-    status: deploymentStatus(dep),
+    namespace: sandbox.metadata.namespace,
+    agentType: sandbox.metadata.labels?.['hermes-agent-deployer/agent-type'] || 'hermes',
+    status: sandboxStatus(sandbox),
     routeUrl,
-    createdAt: dep.metadata.creationTimestamp || '',
+    createdAt: sandbox.metadata.creationTimestamp || '',
     config: {
       modelName: ann['hermes-agent-deployer/model-name'] || '',
       modelUrl: ann['hermes-agent-deployer/model-url'] || '',
@@ -68,25 +81,25 @@ export async function instancesHandler(
 
     const results = await Promise.allSettled(
       namespaces.map(async (ns) => {
-        const depsData = await k8sRequest<{ items: K8sDeployment[] }>(
+        const sandboxData = await k8sRequest<{ items: K8sSandbox[] }>(
           token,
-          `/apis/apps/v1/namespaces/${ns}/deployments?labelSelector=${encodeURIComponent(LABEL_SELECTOR)}`,
+          `/apis/${SANDBOX_API}/namespaces/${ns}/sandboxes?labelSelector=${encodeURIComponent(LABEL_SELECTOR)}`,
         );
 
         const instances: HermesInstance[] = [];
-        for (const dep of depsData.items) {
+        for (const sb of sandboxData.items) {
           let routeUrl = '';
           try {
             const route = await k8sRequest<K8sRoute>(
               token,
-              `/apis/route.openshift.io/v1/namespaces/${ns}/routes/${dep.metadata.name}`,
+              `/apis/route.openshift.io/v1/namespaces/${ns}/routes/${sb.metadata.name}`,
             );
             const host = route.status?.ingress?.[0]?.host || route.spec?.host || '';
             if (host) routeUrl = `https://${host}`;
           } catch {
             // route may not exist yet
           }
-          instances.push(toInstance(dep, routeUrl));
+          instances.push(toInstance(sb, routeUrl));
         }
         return instances;
       }),

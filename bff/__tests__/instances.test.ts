@@ -56,7 +56,7 @@ describe('instancesHandler', () => {
           ],
         });
       }
-      if (path.includes('/deployments')) {
+      if (path.includes('/sandboxes')) {
         return Promise.resolve({
           items: [
             {
@@ -70,7 +70,12 @@ describe('instancesHandler', () => {
                 annotations: { 'hermes-agent-deployer/model-name': 'llama' },
                 creationTimestamp: '2026-01-01T00:00:00Z',
               },
-              status: { availableReplicas: 1, replicas: 1 },
+              spec: { operatingMode: 'Running' },
+              status: {
+                conditions: [
+                  { type: 'Ready', status: 'True', reason: 'DependenciesReady' },
+                ],
+              },
             },
           ],
         });
@@ -94,6 +99,45 @@ describe('instancesHandler', () => {
     expect((body.instances[0] as { routeUrl: string }).routeUrl).toBe('https://agent1.apps.cluster.local');
   });
 
+  it('maps Suspended operatingMode correctly', async () => {
+    const req = mockReq('Bearer tok123');
+    const res = mockRes();
+
+    mockK8sRequest.mockImplementation((_token: string, path: string) => {
+      if (path.includes('/projects')) {
+        return Promise.resolve({
+          items: [{ metadata: { name: 'my-project' } }],
+        });
+      }
+      if (path.includes('/sandboxes')) {
+        return Promise.resolve({
+          items: [
+            {
+              metadata: {
+                name: 'hermes-agent2',
+                namespace: 'my-project',
+                labels: { 'app.kubernetes.io/instance': 'agent2' },
+                creationTimestamp: '2026-01-01T00:00:00Z',
+              },
+              spec: { operatingMode: 'Suspended' },
+              status: {
+                conditions: [
+                  { type: 'Ready', status: 'False', reason: 'SandboxSuspended' },
+                ],
+              },
+            },
+          ],
+        });
+      }
+      return Promise.resolve({ items: [] });
+    });
+
+    await instancesHandler(req as Request, res as unknown as Response);
+
+    const body = res.body as { instances: Array<{ status: string }> };
+    expect(body.instances[0].status).toBe('Suspended');
+  });
+
   it('filters system namespaces', async () => {
     const req = mockReq('Bearer tok');
     const res = mockRes();
@@ -114,10 +158,10 @@ describe('instancesHandler', () => {
 
     await instancesHandler(req as Request, res as unknown as Response);
 
-    const deploymentCalls = mockK8sRequest.mock.calls.filter((c) =>
-      (c[1] as string).includes('/deployments'),
+    const sandboxCalls = mockK8sRequest.mock.calls.filter((c) =>
+      (c[1] as string).includes('/sandboxes'),
     );
-    expect(deploymentCalls).toHaveLength(1);
-    expect(deploymentCalls[0][1]).toContain('user-ns');
+    expect(sandboxCalls).toHaveLength(1);
+    expect(sandboxCalls[0][1]).toContain('user-ns');
   });
 });

@@ -26,13 +26,28 @@ export interface K8sDeployment {
   };
 }
 
+export interface K8sSandbox {
+  metadata: K8sMetadata;
+  spec?: {
+    operatingMode?: 'Running' | 'Suspended';
+    service?: boolean;
+  };
+  status?: {
+    conditions?: Array<{ type: string; status: string; reason?: string; message?: string }>;
+    serviceFQDN?: string;
+    service?: string;
+    podIPs?: string[];
+    nodeName?: string;
+  };
+}
+
 export interface K8sRoute {
   metadata: K8sMetadata;
   spec: { host?: string };
   status?: { ingress?: Array<{ host: string }> };
 }
 
-export type InstanceStatus = 'Pending' | 'Starting' | 'Running' | 'Stopped' | 'Error' | 'Terminating' | 'Unknown';
+export type InstanceStatus = 'Pending' | 'Starting' | 'Running' | 'Stopped' | 'Suspended' | 'Error' | 'Terminating' | 'Unknown';
 
 export interface InstanceConfig {
   modelName: string;

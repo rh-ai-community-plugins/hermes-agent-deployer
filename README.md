@@ -4,7 +4,7 @@ Community plugin for **Red Hat OpenShift AI (RHOAI) Dashboard** that deploys and
 
 ## What It Does
 
-Users deploy autonomous Hermes Agent instances from the RHOAI sidebar. Each instance gets its own pod, PVC, Route, and optional OAuth proxy — all created through the dashboard's K8s API proxy using the logged-in user's token.
+Users deploy autonomous Hermes Agent instances from the RHOAI sidebar. Each instance is an Agent Sandbox resource that provisions a pod, persistent storage, Route, and optional OAuth proxy — all created through the dashboard's K8s API proxy using the logged-in user's token.
 
 | Component | Role |
 |-----------|------|
@@ -18,9 +18,15 @@ Instance listing uses the BFF pattern (server-side aggregation). Create and dele
 
 ### Deploying on an Existing Dashboard
 
-**Prerequisites:** Helm 3.10+, `oc` CLI logged in, RHOAI 3.4+ installed, python3.
+**Prerequisites:** Helm 3.10+, `oc` CLI logged in, RHOAI 3.4+ installed, Agent Sandbox CRDs, python3.
 
-#### Step 1: Install the Plugin
+#### Step 1: Install Agent Sandbox CRDs
+
+```bash
+kubectl apply -f https://github.com/kubernetes-sigs/agent-sandbox/releases/latest/download/manifest.yaml
+```
+
+#### Step 2: Install the Plugin
 
 ```bash
 helm install hermes-deployer chart/ \
@@ -32,7 +38,7 @@ This creates Deployment and Service resources for both the frontend and the BFF.
 
 Users deploying instances need `admin` or `edit` role in their target namespace.
 
-#### Step 2: Register with the Dashboard
+#### Step 3: Register with the Dashboard
 
 ```bash
 ./scripts/register-plugin.sh register
@@ -53,7 +59,7 @@ If installing to a custom namespace, set `PLUGIN_NS`:
 PLUGIN_NS=my-namespace ./scripts/register-plugin.sh register
 ```
 
-#### Step 3: Deploy an Instance
+#### Step 4: Deploy an Instance
 
 1. Open RHOAI dashboard → Community plugins → Hermes Agent → Instances
 2. Click **Deploy New Instance**
@@ -67,7 +73,7 @@ Edit `chart/values.yaml` to customize defaults:
 
 - `instanceDefaults.hermesImage` — Hermes sandbox container image
 - `instanceDefaults.oauthProxy.enabled` — OAuth access control (default: true)
-- `instanceDefaults.pvc.size` — Persistent volume size for agent state
+- `instanceDefaults.storage.size` — Persistent storage size for agent state
 - `instanceDefaults.resources` — CPU/memory requests and limits
 
 ## Development

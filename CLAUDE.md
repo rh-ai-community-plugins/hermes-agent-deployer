@@ -47,7 +47,7 @@ podman build -t hermes-agent-deployer-bff:dev bff/   # BFF service
 
 2. **BFF service** (`bff/`) — Express.js on port 3000. Aggregates instance listing across all accessible namespaces server-side. Receives user's Bearer token via the dashboard proxy.
 
-3. **Hermes instances** — created dynamically by the plugin UI. Each instance is a pod with 1-2 containers:
+3. **Hermes instances** — created dynamically by the plugin UI as Agent Sandbox custom resources. Each instance runs as a pod via Sandbox CR with containers:
    - `hermes-sandbox` (UBI9 + Hermes Agent + WebUI + Chromium/Playwright)
    - `oauth-proxy` sidecar (optional, enabled by default — TLS reencrypt route)
 
@@ -65,23 +65,23 @@ MF name: `hermesAgentDeployer`. Shared singletons: react, react-dom, react-route
 - `src/rhoai/CommunityNavIcon.tsx` — [SHARED] community plugins sidebar icon
 - `src/app/App.tsx` — Root layout: CommunityBanner + Routes
 - `src/app/api/k8sApi.ts` — low-level K8s fetch wrapper (`/api/k8s/` proxy)
-- `src/app/api/instanceApi.ts` — create (with rollback), delete, listAgentTypes
-- `src/app/api/resources.ts` — K8s resource builders (Secret, PVC, ServiceAccount, Deployment, Service, Route)
+- `src/app/api/instanceApi.ts` — create (with rollback), delete, suspend, resume, listAgentTypes
+- `src/app/api/resources.ts` — K8s resource builders (Secret, ServiceAccount, Sandbox, Service, Route)
 - `src/app/api/config.ts` — runtime config from `/config.json` (mounted via ConfigMap)
-- `src/app/hooks/` — React hooks: useInstances (BFF polling), useNamespaces, useInstanceDefaults, useInstanceMutation
+- `src/app/hooks/` — React hooks: useInstances (BFF polling), useNamespaces, useInstanceDefaults, useInstanceMutation (suspend/resume)
 - `src/app/components/` — PatternFly 6 UI: CommunityBanner [SHARED], HermesNavIcon, InstanceList, InstanceCreateModal, StatusBadge
 - `src/app/pages/HermesDeployerPage.tsx` — main page consuming hooks
-- `src/app/types.ts` — `HermesInstance`, `CreateInstanceRequest`, `AgentType`, `InstanceStatus`
+- `src/app/types.ts` — `HermesInstance`, `CreateInstanceRequest`, `AgentType`, `InstanceStatus` (Pending/Running/Suspended/Stopped/Failed)
 
 ### BFF layout
 
 - `bff/src/server.ts` — Express app, GET /api/health + /api/instances
-- `bff/src/routes/instances.ts` — Lists projects, filters system namespaces, fetches deployments by label, fetches routes
+- `bff/src/routes/instances.ts` — Lists projects, filters system namespaces, fetches Sandbox CRs by label, fetches routes
 - `bff/src/utils/k8sClient.ts` — Raw Node.js https to K8s API (in-cluster or K8S_API_BASE env)
 
-### Instance resource naming convention
+### Instance resource model
 
-All K8s resources for an instance named `foo` are prefixed `hermes-foo` and share the label `app.kubernetes.io/managed-by=hermes-agent-deployer`. Instance metadata is stored in deployment annotations prefixed `hermes-agent-deployer/`.
+Instances are Agent Sandbox CRs (`agents.x-k8s.io/v1beta1`). All resources for an instance named `foo` are prefixed `hermes-foo` and share the label `app.kubernetes.io/managed-by=hermes-agent-deployer`. Instance metadata stored in Sandbox annotations prefixed `hermes-agent-deployer/`. Sandbox includes `volumeClaimTemplates` for persistent storage; PVCs auto-cleaned on delete. Suspend/resume via `spec.operatingMode` PATCH.
 
 ### Config flow
 
@@ -89,8 +89,9 @@ Helm `values.yaml` → `instanceDefaults` section → ConfigMap → mounted as `
 
 ## Key Constraints
 
+- **Agent Sandbox CRDs required**: cluster must have Agent Sandbox CRDs installed (`https://github.com/kubernetes-sigs/agent-sandbox/releases/latest/download/manifest.yaml`)
 - **OpenShift-only**: uses Route API (`route.openshift.io/v1`), OAuth proxy, ServiceAccount OAuth redirect references
-- **BFF for listing**: instance listing via `/hermes-agent-deployer/api/instances` (BFF). Create/delete via `/api/k8s/` (dashboard proxy)
+- **BFF for listing**: instance listing via `/hermes-agent-deployer/api/instances` (BFF, queries `/apis/agents.x-k8s.io/v1beta1/namespaces/{ns}/sandboxes`). Create/delete/suspend/resume via `/api/k8s/` (dashboard proxy)
 - **PatternFly 6** component library (not 5)
 - **UBI9 base images**, non-root UID 1001, port 8080 (frontend) / 3000 (BFF)
 - **Path alias**: `~` → `./src/` (webpack + tsconfig)

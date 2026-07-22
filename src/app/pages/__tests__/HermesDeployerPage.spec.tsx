@@ -15,6 +15,8 @@ jest.mock('../../hooks/useInstanceMutation', () => ({
   useInstanceMutation: () => ({
     createInstance: jest.fn(),
     deleteInstance: jest.fn(),
+    suspendInstance: jest.fn(),
+    resumeInstance: jest.fn(),
     creating: false,
     deleting: false,
     error: null,

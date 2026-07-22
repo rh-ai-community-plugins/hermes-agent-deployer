@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { CreateInstanceRequest, HermesInstance } from '../types';
-import { createInstance as apiCreate, deleteInstance as apiDelete, scaleInstance as apiScale } from '../api/instanceApi';
+import { createInstance as apiCreate, deleteInstance as apiDelete, suspendInstance as apiSuspend, resumeInstance as apiResume } from '../api/instanceApi';
 
 export function useInstanceMutation() {
   const [creating, setCreating] = useState(false);
@@ -36,16 +36,27 @@ export function useInstanceMutation() {
     }
   }, []);
 
-  const scaleInstance = useCallback(async (name: string, namespace: string, replicas: number): Promise<void> => {
+  const suspendInstance = useCallback(async (name: string, namespace: string): Promise<void> => {
     setError(null);
     try {
-      await apiScale(name, namespace, replicas);
+      await apiSuspend(name, namespace);
     } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Failed to scale instance';
+      const msg = e instanceof Error ? e.message : 'Failed to suspend instance';
       setError(msg);
       throw e;
     }
   }, []);
 
-  return { createInstance, deleteInstance, scaleInstance, creating, deleting, error };
+  const resumeInstance = useCallback(async (name: string, namespace: string): Promise<void> => {
+    setError(null);
+    try {
+      await apiResume(name, namespace);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Failed to resume instance';
+      setError(msg);
+      throw e;
+    }
+  }, []);
+
+  return { createInstance, deleteInstance, suspendInstance, resumeInstance, creating, deleting, error };
 }

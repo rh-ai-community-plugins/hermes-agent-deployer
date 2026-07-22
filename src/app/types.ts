@@ -9,7 +9,7 @@ export interface HermesInstance {
   config: InstanceConfig;
 }
 
-export type InstanceStatus = 'Pending' | 'Starting' | 'Running' | 'Stopped' | 'Error' | 'Terminating' | 'Unknown';
+export type InstanceStatus = 'Pending' | 'Starting' | 'Running' | 'Stopped' | 'Suspended' | 'Error' | 'Terminating' | 'Unknown';
 
 export interface InstanceConfig {
   modelName: string;

@@ -4,11 +4,15 @@ import { useInstanceMutation } from '../useInstanceMutation';
 jest.mock('../../api/instanceApi', () => ({
   createInstance: jest.fn(),
   deleteInstance: jest.fn(),
+  suspendInstance: jest.fn(),
+  resumeInstance: jest.fn(),
 }));
 
-import { createInstance, deleteInstance } from '../../api/instanceApi';
+import { createInstance, deleteInstance, suspendInstance, resumeInstance } from '../../api/instanceApi';
 const mockCreate = createInstance as jest.MockedFunction<typeof createInstance>;
 const mockDelete = deleteInstance as jest.MockedFunction<typeof deleteInstance>;
+const mockSuspend = suspendInstance as jest.MockedFunction<typeof suspendInstance>;
+const mockResume = resumeInstance as jest.MockedFunction<typeof resumeInstance>;
 
 const req = {
   name: 'test',
@@ -82,5 +86,29 @@ describe('useInstanceMutation', () => {
 
     expect(mockDelete).toHaveBeenCalledWith('test', 'ns');
     expect(result.current.deleting).toBe(false);
+  });
+
+  it('suspends an instance', async () => {
+    mockSuspend.mockResolvedValue();
+
+    const { result } = renderHook(() => useInstanceMutation());
+
+    await act(async () => {
+      await result.current.suspendInstance('test', 'ns');
+    });
+
+    expect(mockSuspend).toHaveBeenCalledWith('test', 'ns');
+  });
+
+  it('resumes an instance', async () => {
+    mockResume.mockResolvedValue();
+
+    const { result } = renderHook(() => useInstanceMutation());
+
+    await act(async () => {
+      await result.current.resumeInstance('test', 'ns');
+    });
+
+    expect(mockResume).toHaveBeenCalledWith('test', 'ns');
   });
 });
