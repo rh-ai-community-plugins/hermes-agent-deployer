@@ -4,15 +4,19 @@ Community plugin for **Red Hat OpenShift AI (RHOAI) Dashboard** that deploys and
 
 ## What It Does
 
-Users deploy autonomous Hermes Agent instances from the RHOAI sidebar. Each instance is an Agent Sandbox resource that provisions a pod, persistent storage, Route, and optional OAuth proxy — all created through the dashboard's K8s API proxy using the logged-in user's token.
+Users deploy autonomous Hermes Agent instances from the RHOAI sidebar. Each instance is an **Agent Sandbox CR** that provisions:
+- Pod with Hermes Agent + WebUI + Chromium/Playwright + optional OAuth proxy
+- Persistent storage (PVC via `volumeClaimTemplates`)
+- Service and Route for WebUI access
+- Secret and ServiceAccount for credentials
 
 | Component | Role |
 |-----------|------|
 | **Plugin frontend** | Nginx-served `remoteEntry.js` loaded by the dashboard at runtime |
-| **BFF service** | Node.js backend that aggregates instance listing across namespaces |
-| **Hermes instances** | Per-user pods with Hermes Agent + WebUI + Chromium/Playwright |
+| **BFF service** | Node.js backend that aggregates instance listing across namespaces + serves network policy templates |
+| **Hermes instances** | Per-user Agent Sandbox CRs with Hermes Agent + WebUI + Chromium/Playwright |
 
-Instance listing uses the BFF pattern (server-side aggregation). Create and delete operations go directly through the dashboard's `/api/k8s/` proxy.
+Instance listing uses the BFF pattern (server-side aggregation). Create, delete, suspend, and resume operations go through the dashboard's `/api/k8s/` proxy. Network policy selection (optional, OpenShell integration) is managed via instance annotations.
 
 ## Quick Start
 

@@ -7,8 +7,14 @@ BFF_IMAGE      ?= hermes-agent-deployer-bff
 CHART_NAME     ?= hermes-agent-deployer-chart
 VERSION        ?=
 BUILDER        ?= podman
-IMAGE_TAG      ?= latest
+IMAGE_TAG      ?= dev
 SEVERITY       ?= HIGH,CRITICAL
+PLATFORM       ?= linux/amd64
+
+# Deployment settings
+HELM_RELEASE   ?= hermes-deployer
+HELM_NAMESPACE ?= hermes-deployer
+SANDBOX_IMAGE  ?= quay.io/rh-ai-community-plugins/hermes-sandbox:dev-playwright-fix
 
 # ──────────────────────────────────────────────
 # Install
@@ -117,10 +123,10 @@ dev-bff: ## Start BFF dev server (port 3000, requires K8S_API_BASE)
 image-build: image-build-frontend image-build-bff ## Build container images
 
 image-build-frontend:
-	$(BUILDER) build -t $(REGISTRY)/$(FRONTEND_IMAGE):$(IMAGE_TAG) -f Containerfile .
+	$(BUILDER) build --platform $(PLATFORM) -t $(REGISTRY)/$(FRONTEND_IMAGE):$(IMAGE_TAG) -f Containerfile .
 
 image-build-bff:
-	$(BUILDER) build -t $(REGISTRY)/$(BFF_IMAGE):$(IMAGE_TAG) -f bff/Containerfile bff/
+	$(BUILDER) build --platform $(PLATFORM) -t $(REGISTRY)/$(BFF_IMAGE):$(IMAGE_TAG) -f bff/Containerfile bff/
 
 image-push: ## Build and push container images (frontend + BFF)
 	./scripts/build-push.sh all $(VERSION)
@@ -149,6 +155,46 @@ chart-push: ## Package and push Helm chart to OCI registry (requires Helm 3.8+)
 	@rm -f $(CHART_TGZ)
 
 # ──────────────────────────────────────────────
+# Dev workflow (build → push → deploy → register)
+# ──────────────────────────────────────────────
+
+.PHONY: dev-push deploy redeploy register unregister plugin-status
+
+dev-push: ## Build and push images with IMAGE_TAG (default: dev), no version prompt
+	$(BUILDER) build --platform $(PLATFORM) -t $(REGISTRY)/$(FRONTEND_IMAGE):$(IMAGE_TAG) -f Containerfile .
+	$(BUILDER) push $(REGISTRY)/$(FRONTEND_IMAGE):$(IMAGE_TAG)
+	$(BUILDER) build --platform $(PLATFORM) -t $(REGISTRY)/$(BFF_IMAGE):$(IMAGE_TAG) -f bff/Containerfile bff/
+	$(BUILDER) push $(REGISTRY)/$(BFF_IMAGE):$(IMAGE_TAG)
+
+deploy: ## Helm install on cluster (creates namespace, checks CRD prereq)
+	@oc get crd sandboxes.agents.x-k8s.io >/dev/null 2>&1 || \
+		{ echo "ERROR: Agent Sandbox CRDs not installed. Run:"; \
+		  echo "  oc apply -f https://github.com/kubernetes-sigs/agent-sandbox/releases/download/v0.5.2/sandbox.yaml"; \
+		  exit 1; }
+	oc new-project $(HELM_NAMESPACE) 2>/dev/null || true
+	helm install $(HELM_RELEASE) ./chart/ -n $(HELM_NAMESPACE) \
+		--set image.tag=$(IMAGE_TAG) --set image.pullPolicy=Always \
+		--set bff.image.tag=$(IMAGE_TAG) --set bff.image.pullPolicy=Always \
+		--set instanceDefaults.hermesImage=$(SANDBOX_IMAGE)
+
+redeploy: ## Helm upgrade + restart pods to pull latest images
+	helm upgrade $(HELM_RELEASE) ./chart/ -n $(HELM_NAMESPACE) \
+		--set image.tag=$(IMAGE_TAG) --set image.pullPolicy=Always \
+		--set bff.image.tag=$(IMAGE_TAG) --set bff.image.pullPolicy=Always \
+		--set instanceDefaults.hermesImage=$(SANDBOX_IMAGE)
+	oc rollout restart deployment/hermes-agent-deployer -n $(HELM_NAMESPACE)
+	oc rollout restart deployment/hermes-agent-deployer-bff -n $(HELM_NAMESPACE)
+
+register: ## Register plugin in RHOAI dashboard
+	./scripts/register-plugin.sh register
+
+unregister: ## Unregister plugin from RHOAI dashboard
+	./scripts/register-plugin.sh unregister
+
+plugin-status: ## Check plugin registration status
+	./scripts/register-plugin.sh status
+
+# ──────────────────────────────────────────────
 # Clean
 # ──────────────────────────────────────────────
 
@@ -174,6 +220,10 @@ help: ## Show this help
 	@printf "  \033[33m%-20s\033[0m %s (default: %s)\n" "CHART_NAME"     "Helm chart name"                      "$(CHART_NAME)"
 	@printf "  \033[33m%-20s\033[0m %s (default: %s)\n" "VERSION"        "Release version for image-push"       "auto-computed from git tags"
 	@printf "  \033[33m%-20s\033[0m %s (default: %s)\n" "BUILDER"        "Container build tool"                 "$(BUILDER)"
-	@printf "  \033[33m%-20s\033[0m %s (default: %s)\n" "IMAGE_TAG"      "Tag for image-build / image-scan"     "$(IMAGE_TAG)"
+	@printf "  \033[33m%-20s\033[0m %s (default: %s)\n" "IMAGE_TAG"      "Tag for dev-push / deploy"            "$(IMAGE_TAG)"
+	@printf "  \033[33m%-20s\033[0m %s (default: %s)\n" "PLATFORM"       "Container build platform"             "$(PLATFORM)"
 	@printf "  \033[33m%-20s\033[0m %s (default: %s)\n" "SEVERITY"       "Trivy severity filter for image-scan" "$(SEVERITY)"
+	@printf "  \033[33m%-20s\033[0m %s (default: %s)\n" "HELM_RELEASE"   "Helm release name"                    "$(HELM_RELEASE)"
+	@printf "  \033[33m%-20s\033[0m %s (default: %s)\n" "HELM_NAMESPACE" "Target namespace"                     "$(HELM_NAMESPACE)"
+	@printf "  \033[33m%-20s\033[0m %s\n"               "SANDBOX_IMAGE"  "Sandbox image for new instances"
 	@printf "\n"

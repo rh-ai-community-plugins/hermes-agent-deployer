@@ -156,8 +156,11 @@ print(json.dumps(config))
     echo "${config}" > "${backup_file}"
     log_info "Backup saved to ${backup_file}"
 
+    log_warn "Scaling down RHOAI operator to prevent reconciliation..."
+    oc scale deployment/rhods-operator -n redhat-ods-operator --replicas=0 2>/dev/null || true
+
     log_info "Updating MODULE_FEDERATION_CONFIG..."
-    if ! oc set env deployment/"${DASHBOARD_DEPLOY}" -n "${DASHBOARD_NS}" \
+    if ! oc set env deployment/"${DASHBOARD_DEPLOY}" -n "${DASHBOARD_NS}" --containers='*' \
         "MODULE_FEDERATION_CONFIG=${new_config}" 2>/dev/null; then
         log_error "Failed to update dashboard env var"
         log_error "Restore with: oc set env deployment/${DASHBOARD_DEPLOY} -n ${DASHBOARD_NS} \"MODULE_FEDERATION_CONFIG=\$(cat ${backup_file})\""
@@ -165,8 +168,10 @@ print(json.dumps(config))
     fi
 
     log_success "Plugin registered. Dashboard pods will restart (~2 minutes)."
+    log_warn "RHOAI operator is scaled down. Re-enable with:"
+    log_warn "  oc scale deployment/rhods-operator -n redhat-ods-operator --replicas=1"
     log_info "Backup at ${backup_file} — restore with:"
-    log_info "  oc set env deployment/${DASHBOARD_DEPLOY} -n ${DASHBOARD_NS} \"MODULE_FEDERATION_CONFIG=\$(cat ${backup_file})\""
+    log_info "  oc set env deployment/${DASHBOARD_DEPLOY} -n ${DASHBOARD_NS} --containers='*' \"MODULE_FEDERATION_CONFIG=\$(cat ${backup_file})\""
 }
 
 do_unregister() {
