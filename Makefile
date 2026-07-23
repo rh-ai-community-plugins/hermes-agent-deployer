@@ -105,13 +105,23 @@ build-bff:
 # Dev servers
 # ──────────────────────────────────────────────
 
-.PHONY: dev dev-bff
+.PHONY: dev dev-bff dev-all
 
 dev: ## Start frontend dev server (port 9112)
 	npm run start:dev
 
 dev-bff: ## Start BFF dev server (port 3000, requires K8S_API_BASE)
 	cd bff && npm run start:dev
+
+dev-all: ## Start frontend + BFF connected to cluster (requires oc login)
+	@oc whoami >/dev/null 2>&1 || { echo "ERROR: not logged in. Run: oc login ..."; exit 1; }
+	@echo "Starting BFF (port 3000) → $$(oc whoami --show-server)"
+	@echo "Starting frontend (port 9112) → http://localhost:9112/hermes-agent-deployer"
+	@echo "Press Ctrl-C to stop both.\n"
+	@trap 'kill 0' INT TERM; \
+		K8S_API_BASE=$$(oc whoami --show-server) $(MAKE) dev-bff & \
+		$(MAKE) dev & \
+		wait
 
 # ──────────────────────────────────────────────
 # Container images

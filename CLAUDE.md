@@ -10,7 +10,6 @@ RHOAI community plugin that adds a "Hermes Agent Deployer" section under "Commun
 
 ```bash
 npm install              # install dependencies
-npm run start:dev        # dev server on localhost:9112
 npm run build            # production build → dist/
 npm test                 # jest (unit tests, *.spec.ts / *.spec.tsx)
 npm run test:watch       # jest watch mode
@@ -20,12 +19,15 @@ npm run lint             # eslint src/
 make validate            # lint + typecheck + test (frontend + BFF)
 ```
 
-BFF service:
+Local dev (requires `oc login`):
 ```bash
-cd bff && npm install
-K8S_API_BASE=$(oc whoami --show-server) npm run start:dev  # BFF on port 3000
-cd bff && npm test                                          # BFF tests (*.test.ts)
+make install                                        # install deps (frontend + BFF)
+make dev-all                                        # frontend (9112) + BFF (3000) connected to cluster
+make dev                                            # frontend only
+make dev-bff                                        # BFF only (needs K8S_API_BASE)
 ```
+
+The dev server auto-injects the `oc` token into BFF and K8s API proxies. Open `http://localhost:9112/hermes-agent-deployer`.
 
 Dev workflow (with Makefile):
 ```bash
