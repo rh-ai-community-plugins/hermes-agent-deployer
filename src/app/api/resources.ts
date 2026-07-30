@@ -74,6 +74,7 @@ export function buildSandbox(req: CreateInstanceRequest, defaults: InstanceDefau
       env: [
         { name: 'HERMES_WEBUI_PORT', value: '8080' },
         { name: 'HERMES_WEBUI_HOST', value: '0.0.0.0' },
+        ...(req.oauthProxyEnabled ? [{ name: 'HERMES_WEBUI_NO_AUTH', value: 'true' }] : []),
       ],
       envFrom: [
         { secretRef: { name: `hermes-${req.name}-credentials` } },

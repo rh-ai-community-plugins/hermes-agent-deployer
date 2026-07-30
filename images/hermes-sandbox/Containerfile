@@ -1,9 +1,54 @@
-FROM registry.access.redhat.com/ubi9/python-311:latest
+# Hermes Agent Sandbox — multi-stage UBI9 build
+# Includes: Hermes Agent (from source), Hermes WebUI, Playwright/Chromium
+#
+# Build:
+#   podman build --platform linux/amd64 -t hermes-sandbox:dev -f images/hermes-sandbox/Containerfile images/hermes-sandbox/
+
+# =====================================================================
+# Builder stage — compile native extensions, install Python deps
+# =====================================================================
+FROM registry.access.redhat.com/ubi9/python-312:latest AS builder
+
+USER 0
+
+RUN dnf install -y --nodocs gcc git && dnf clean all
+
+ARG HERMES_AGENT_REF=v2026.7.20
+
+RUN git clone --depth 1 --branch ${HERMES_AGENT_REF} \
+        https://github.com/NousResearch/hermes-agent.git /opt/hermes/src
+
+RUN python3 -m venv /opt/hermes/venv
+ENV PATH="/opt/hermes/venv/bin:$PATH" \
+    VIRTUAL_ENV=/opt/hermes/venv
+
+RUN pip install --no-cache-dir -e "/opt/hermes/src[web,mcp,cli]"
+
+RUN pip install --no-cache-dir ddgs elevenlabs
+
+ENV PLAYWRIGHT_BROWSERS_PATH=/opt/playwright-browsers
+RUN pip install --no-cache-dir playwright && \
+    playwright install chromium
+
+ARG HERMES_WEBUI_REF=v0.52.76
+RUN git clone --depth 1 --branch ${HERMES_WEBUI_REF} \
+        https://github.com/nesquena/hermes-webui.git /opt/hermes-webui && \
+    cd /opt/hermes-webui && \
+    pip install --no-cache-dir -r requirements.txt
+
+# =====================================================================
+# Runtime stage — slim image with only what's needed to run
+# =====================================================================
+FROM registry.access.redhat.com/ubi9/python-312:latest
+
+LABEL org.opencontainers.image.source="https://github.com/rh-ai-community-plugins/hermes-agent-deployer" \
+      org.opencontainers.image.description="Hermes Agent sandbox: Hermes Agent + WebUI + Playwright/Chromium on UBI9" \
+      org.opencontainers.image.vendor="Red Hat AI Community Plugins"
 
 USER 0
 
 RUN dnf install -y --nodocs \
-        git nodejs npm \
+        nodejs npm \
         nss nspr \
         atk at-spi2-atk \
         cups-libs \
@@ -17,43 +62,48 @@ RUN dnf install -y --nodocs \
         dbus-libs \
     && dnf clean all
 
-ARG HERMES_AGENT_VERSION=0.19.0
-ARG PLAYWRIGHT_VERSION=1.61.0
-RUN pip install --no-cache-dir \
-        hermes-agent==${HERMES_AGENT_VERSION} \
-        playwright==${PLAYWRIGHT_VERSION}
+ARG TINI_VERSION=v0.19.0
+RUN curl -Lo /usr/local/bin/tini \
+        https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini-amd64 && \
+    chmod +x /usr/local/bin/tini
 
-ENV PLAYWRIGHT_BROWSERS_PATH=/opt/playwright-browsers
-RUN playwright install chromium && \
-    chgrp -R 0 /opt/playwright-browsers && \
-    chmod -R g=u /opt/playwright-browsers
+COPY --from=builder /opt/hermes /opt/hermes
+COPY --from=builder /opt/playwright-browsers /opt/playwright-browsers
+COPY --from=builder /opt/hermes-webui /opt/hermes-webui
+
+ENV PATH="/opt/hermes/venv/bin:$PATH" \
+    VIRTUAL_ENV=/opt/hermes/venv \
+    PLAYWRIGHT_BROWSERS_PATH=/opt/playwright-browsers
 
 RUN CHROME_BIN=$(find /opt/playwright-browsers -name "chrome" -o -name "headless_shell" 2>/dev/null | head -1) && \
-    echo "Chromium binary: ${CHROME_BIN}" && \
+    echo "Chromium smoke test: ${CHROME_BIN}" && \
     "${CHROME_BIN}" --version --no-sandbox --headless --disable-gpu 2>&1 || \
     (echo "FATAL: Chromium smoke test failed" && exit 1)
-
-RUN git clone --depth 1 https://github.com/nesquena/hermes-webui.git /opt/hermes-webui && \
-    cd /opt/hermes-webui && \
-    pip install --no-cache-dir -r requirements.txt 2>/dev/null || true
 
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
 RUN mkdir -p /home/hermes/.hermes /home/hermes/.cache /tmp/hermes && \
-    chgrp -R 0 /home/hermes /opt/hermes-webui /tmp/hermes && \
-    chmod -R g=u /home/hermes /opt/hermes-webui /tmp/hermes
+    chgrp -R 0 /home/hermes /opt/hermes-webui /opt/hermes /opt/playwright-browsers /tmp/hermes && \
+    chmod -R g=u /home/hermes /opt/hermes-webui /opt/hermes /opt/playwright-browsers /tmp/hermes
 
 ENV HOME=/home/hermes \
+    HERMES_HOME=/home/hermes/.hermes \
     HERMES_WEBUI_PORT=8080 \
     HERMES_WEBUI_HOST=0.0.0.0 \
     HERMES_WEBUI_STATE_DIR=/home/hermes/.hermes/webui \
+    HERMES_WEBUI_SESSIONS_MAX=50 \
+    HERMES_WEBUI_AGENT_DIR=/opt/hermes/src \
     AGENT_BROWSER_ARGS="--no-sandbox,--disable-dev-shm-usage,--disable-gpu,--disable-setuid-sandbox"
 
 EXPOSE 8080
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+    CMD curl -sf http://localhost:8080/ || exit 1
 
 WORKDIR /opt/hermes-webui
 
 USER 1001
 
+ENTRYPOINT ["/usr/local/bin/tini", "--"]
 CMD ["/usr/local/bin/entrypoint.sh"]

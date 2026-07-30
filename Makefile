@@ -4,6 +4,7 @@
 REGISTRY       ?= quay.io/rh-ai-community-plugins
 FRONTEND_IMAGE ?= hermes-agent-deployer
 BFF_IMAGE      ?= hermes-agent-deployer-bff
+SANDBOX_IMAGE_NAME ?= hermes-sandbox
 CHART_NAME     ?= hermes-agent-deployer-chart
 VERSION        ?=
 BUILDER        ?= podman
@@ -14,7 +15,7 @@ PLATFORM       ?= linux/amd64
 # Deployment settings
 HELM_RELEASE   ?= hermes-deployer
 HELM_NAMESPACE ?= hermes-deployer
-SANDBOX_IMAGE  ?= quay.io/rh-ai-community-plugins/hermes-sandbox:dev-playwright-fix
+SANDBOX_IMAGE  ?= $(REGISTRY)/$(SANDBOX_IMAGE_NAME):$(IMAGE_TAG)
 
 # ──────────────────────────────────────────────
 # Install
@@ -127,16 +128,19 @@ dev-all: ## Start frontend + BFF connected to cluster (requires oc login)
 # Container images
 # ──────────────────────────────────────────────
 
-.PHONY: image-build image-build-frontend image-build-bff
-.PHONY: image-push image-push-frontend image-push-bff image-scan
+.PHONY: image-build image-build-frontend image-build-bff image-build-sandbox
+.PHONY: image-push image-push-frontend image-push-bff image-push-sandbox image-scan
 
-image-build: image-build-frontend image-build-bff ## Build container images
+image-build: image-build-frontend image-build-bff ## Build container images (frontend + BFF)
 
 image-build-frontend:
 	$(BUILDER) build --platform $(PLATFORM) -t $(REGISTRY)/$(FRONTEND_IMAGE):$(IMAGE_TAG) -f Containerfile .
 
 image-build-bff:
 	$(BUILDER) build --platform $(PLATFORM) -t $(REGISTRY)/$(BFF_IMAGE):$(IMAGE_TAG) -f bff/Containerfile bff/
+
+image-build-sandbox: ## Build sandbox container image
+	$(BUILDER) build --platform $(PLATFORM) -t $(REGISTRY)/$(SANDBOX_IMAGE_NAME):$(IMAGE_TAG) -f images/hermes-sandbox/Containerfile images/hermes-sandbox/
 
 image-push: ## Build and push container images (frontend + BFF)
 	./scripts/build-push.sh all $(VERSION)
@@ -146,6 +150,9 @@ image-push-frontend: ## Build and push frontend container image only
 
 image-push-bff: ## Build and push BFF container image only
 	./scripts/build-push.sh bff $(VERSION)
+
+image-push-sandbox: image-build-sandbox ## Build and push sandbox container image
+	$(BUILDER) push $(REGISTRY)/$(SANDBOX_IMAGE_NAME):$(IMAGE_TAG)
 
 image-scan: ## Build and scan images for vulnerabilities
 	BUILDER=$(BUILDER) IMAGE_TAG=$(IMAGE_TAG) ./scripts/scan-image.sh all $(SEVERITY)
@@ -235,5 +242,6 @@ help: ## Show this help
 	@printf "  \033[33m%-20s\033[0m %s (default: %s)\n" "SEVERITY"       "Trivy severity filter for image-scan" "$(SEVERITY)"
 	@printf "  \033[33m%-20s\033[0m %s (default: %s)\n" "HELM_RELEASE"   "Helm release name"                    "$(HELM_RELEASE)"
 	@printf "  \033[33m%-20s\033[0m %s (default: %s)\n" "HELM_NAMESPACE" "Target namespace"                     "$(HELM_NAMESPACE)"
-	@printf "  \033[33m%-20s\033[0m %s\n"               "SANDBOX_IMAGE"  "Sandbox image for new instances"
+	@printf "  \033[33m%-20s\033[0m %s (default: %s)\n" "SANDBOX_IMAGE_NAME" "Sandbox image name"                   "$(SANDBOX_IMAGE_NAME)"
+	@printf "  \033[33m%-20s\033[0m %s\n"               "SANDBOX_IMAGE"  "Sandbox image for new instances (default: REGISTRY/SANDBOX_IMAGE_NAME:IMAGE_TAG)"
 	@printf "\n"
