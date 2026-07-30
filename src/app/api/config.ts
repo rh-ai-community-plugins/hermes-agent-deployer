@@ -11,6 +11,10 @@ export interface InstanceDefaults {
     requests: { cpu: string; memory: string };
     limits: { cpu: string; memory: string };
   };
+  openshell?: {
+    enabled: boolean;
+    networkPolicyTier: string;
+  };
 }
 
 const FALLBACK: InstanceDefaults = {
@@ -23,6 +27,10 @@ const FALLBACK: InstanceDefaults = {
   resources: {
     requests: { cpu: '200m', memory: '512Mi' },
     limits: { cpu: '1', memory: '1Gi' },
+  },
+  openshell: {
+    enabled: false,
+    networkPolicyTier: 'standard',
   },
 };
 

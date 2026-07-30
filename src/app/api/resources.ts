@@ -14,6 +14,18 @@ const LABELS = (name: string, agentType: string) => ({
   'hermes-agent-deployer/agent-type': agentType,
 });
 
+const ANNOTATIONS = (req: CreateInstanceRequest, defaults: InstanceDefaults) => ({
+  'hermes-agent-deployer/display-name': req.displayName,
+  'hermes-agent-deployer/model-name': req.modelName,
+  'hermes-agent-deployer/model-url': req.modelUrl,
+  'hermes-agent-deployer/pvc-size': req.pvcSize,
+  'hermes-agent-deployer/oauth-proxy': String(req.oauthProxyEnabled),
+  ...(defaults.openshell?.enabled && {
+    'hermes-agent-deployer/openshell': 'true',
+    'hermes-agent-deployer/openshell-policy': req.networkPolicyTier || defaults.openshell.networkPolicyTier,
+  }),
+});
+
 export function buildSecret(req: CreateInstanceRequest) {
   return {
     apiVersion: 'v1',
@@ -28,26 +40,6 @@ export function buildSecret(req: CreateInstanceRequest) {
       OPENAI_API_KEY: req.apiKey,
       OPENAI_BASE_URL: req.modelUrl,
       HERMES_INFERENCE_MODEL: req.modelName,
-    },
-  };
-}
-
-export function buildPvc(req: CreateInstanceRequest) {
-  return {
-    apiVersion: 'v1',
-    kind: 'PersistentVolumeClaim',
-    metadata: {
-      name: `hermes-${req.name}-data`,
-      namespace: req.namespace,
-      labels: LABELS(req.name, req.agentType),
-    },
-    spec: {
-      accessModes: ['ReadWriteOnce'],
-      resources: {
-        requests: {
-          storage: req.pvcSize || '1Gi',
-        },
-      },
     },
   };
 }
@@ -73,7 +65,7 @@ export function buildServiceAccount(req: CreateInstanceRequest) {
   };
 }
 
-export function buildDeployment(req: CreateInstanceRequest, defaults: InstanceDefaults) {
+export function buildSandbox(req: CreateInstanceRequest, defaults: InstanceDefaults) {
   const containers: Record<string, unknown>[] = [
     {
       name: 'hermes-sandbox',
@@ -82,6 +74,8 @@ export function buildDeployment(req: CreateInstanceRequest, defaults: InstanceDe
       env: [
         { name: 'HERMES_WEBUI_PORT', value: '8080' },
         { name: 'HERMES_WEBUI_HOST', value: '0.0.0.0' },
+        { name: 'HERMES_WEBUI_SKIP_ONBOARDING', value: '1' },
+        ...(req.oauthProxyEnabled ? [{ name: 'HERMES_WEBUI_NO_AUTH', value: 'true' }] : []),
       ],
       envFrom: [
         { secretRef: { name: `hermes-${req.name}-credentials` } },
@@ -111,10 +105,6 @@ export function buildDeployment(req: CreateInstanceRequest, defaults: InstanceDe
   ];
 
   const volumes: Record<string, unknown>[] = [
-    {
-      name: 'hermes-data',
-      persistentVolumeClaim: { claimName: `hermes-${req.name}-data` },
-    },
     { name: 'tmp', emptyDir: {} },
     { name: 'dshm', emptyDir: { medium: 'Memory', sizeLimit: '256Mi' } },
   ];
@@ -144,29 +134,17 @@ export function buildDeployment(req: CreateInstanceRequest, defaults: InstanceDe
   }
 
   return {
-    apiVersion: 'apps/v1',
-    kind: 'Deployment',
+    apiVersion: 'agents.x-k8s.io/v1beta1',
+    kind: 'Sandbox',
     metadata: {
       name: `hermes-${req.name}`,
       namespace: req.namespace,
       labels: LABELS(req.name, req.agentType),
-      annotations: {
-        'hermes-agent-deployer/display-name': req.displayName,
-        'hermes-agent-deployer/model-name': req.modelName,
-        'hermes-agent-deployer/model-url': req.modelUrl,
-        'hermes-agent-deployer/pvc-size': req.pvcSize,
-        'hermes-agent-deployer/oauth-proxy': String(req.oauthProxyEnabled),
-      },
+      annotations: ANNOTATIONS(req, defaults),
     },
     spec: {
-      replicas: 1,
-      selector: {
-        matchLabels: {
-          'app.kubernetes.io/name': 'hermes-instance',
-          'app.kubernetes.io/instance': req.name,
-        },
-      },
-      template: {
+      operatingMode: 'Running',
+      podTemplate: {
         metadata: {
           labels: LABELS(req.name, req.agentType),
         },
@@ -176,6 +154,17 @@ export function buildDeployment(req: CreateInstanceRequest, defaults: InstanceDe
           volumes,
         },
       },
+      volumeClaimTemplates: [
+        {
+          metadata: { name: 'hermes-data' },
+          spec: {
+            accessModes: ['ReadWriteOnce'],
+            resources: {
+              requests: { storage: req.pvcSize || '1Gi' },
+            },
+          },
+        },
+      ],
     },
   };
 }

@@ -4,7 +4,7 @@ import StatusBadge from '../StatusBadge';
 import { InstanceStatus } from '../../types';
 
 describe('StatusBadge', () => {
-  const statuses: InstanceStatus[] = ['Running', 'Starting', 'Pending', 'Error', 'Terminating', 'Unknown'];
+  const statuses: InstanceStatus[] = ['Running', 'Starting', 'Pending', 'Suspended', 'Error', 'Terminating', 'Unknown'];
 
   it.each(statuses)('renders the %s status text', (status) => {
     render(<StatusBadge status={status} />);

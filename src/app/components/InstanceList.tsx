@@ -45,7 +45,7 @@ const InstanceList: React.FC<InstanceListProps> = ({ instances, onDelete, onStop
   }
 
   const rowActions = (instance: HermesInstance): IAction[] => {
-    const isStopped = instance.status === 'Stopped';
+    const isStopped = instance.status === 'Stopped' || instance.status === 'Suspended';
     return [
       {
         title: 'Open',

@@ -46,7 +46,7 @@ affinity: {}
 
 # Instance defaults served as /config.json to the frontend
 instanceDefaults:
-  hermesImage: quay.io/rh-ai-community-plugins/hermes-sandbox:0.1.0
+  hermesImage: quay.io/rh-ai-community-plugins/hermes-sandbox:20260730
   oauthProxy:
     enabled: true
     image: registry.redhat.io/openshift4/ose-oauth-proxy-rhel9:v4.17
@@ -59,6 +59,18 @@ instanceDefaults:
     limits:
       cpu: "1"
       memory: 1Gi
+
+# OpenShell sandbox security (optional)
+# Requires: OpenShell gateway deployed, Agent Sandbox CRDs installed,
+# privileged SCC granted to openshell-sandbox SA
+openshell:
+  enabled: false
+  gateway:
+    namespace: openshell
+  networkPolicy:
+    tier: standard
+  # OCP apps domain for policy template rendering (e.g., apps.cluster.example.com)
+  ocpAppsDomain: ""
 
 # BFF service
 bff:

@@ -47,7 +47,7 @@ function writeLastProject(project: string | null): void {
 
 const HermesDeployerPage: React.FC = () => {
   const { instances, loading, error: listError, refresh } = useInstances();
-  const { createInstance, deleteInstance, scaleInstance, deleting, error: mutationError } = useInstanceMutation();
+  const { createInstance, deleteInstance, suspendInstance, resumeInstance, deleting, error: mutationError } = useInstanceMutation();
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<HermesInstance | null>(null);
   const [selectedProject, setSelectedProject] = useState<string | null>(readLastProject);
@@ -70,12 +70,12 @@ const HermesDeployerPage: React.FC = () => {
   };
 
   const handleStop = async (inst: HermesInstance) => {
-    await scaleInstance(inst.name, inst.namespace, 0);
+    await suspendInstance(inst.name, inst.namespace);
     refresh();
   };
 
   const handleStart = async (inst: HermesInstance) => {
-    await scaleInstance(inst.name, inst.namespace, 1);
+    await resumeInstance(inst.name, inst.namespace);
     refresh();
   };
 
@@ -147,7 +147,7 @@ const HermesDeployerPage: React.FC = () => {
           <ModalBody>
             Are you sure you want to delete <strong>{deleteTarget.name}</strong> in
             namespace <strong>{deleteTarget.namespace}</strong>? This will remove
-            the pod, PVC, and all associated data.
+            the sandbox, storage, and all associated data.
           </ModalBody>
           <ModalFooter>
             <Button variant="danger" onClick={handleDelete} isLoading={deleting} isDisabled={deleting}>

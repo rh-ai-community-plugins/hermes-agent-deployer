@@ -1,5 +1,6 @@
 import express from 'express';
 import { instancesHandler } from './routes/instances';
+import { policiesHandler } from './routes/policies';
 import { getK8sBaseUrl } from './utils/k8sClient';
 
 const app = express();
@@ -7,6 +8,7 @@ const PORT = parseInt(process.env.PORT || '3000', 10);
 
 app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
 app.get('/api/instances', instancesHandler);
+app.get('/api/policies/templates', policiesHandler);
 
 app.listen(PORT, () => {
   try {

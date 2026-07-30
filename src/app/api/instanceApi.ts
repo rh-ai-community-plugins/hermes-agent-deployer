@@ -1,11 +1,12 @@
 import { HermesInstance, CreateInstanceRequest, AgentType, InstanceStatus } from '../types';
 import { k8sFetch, listNamespaces as k8sListNamespaces } from './k8sApi';
-import { buildSecret, buildPvc, buildServiceAccount, buildDeployment, buildService, buildRoute } from './resources';
+import { buildSecret, buildServiceAccount, buildSandbox, buildService, buildRoute } from './resources';
 import { getInstanceDefaults } from './config';
 
 const LABEL_SELECTOR = 'app.kubernetes.io/managed-by=hermes-agent-deployer';
+const SANDBOX_API = 'agents.x-k8s.io/v1beta1';
 
-interface K8sDeployment {
+interface K8sSandbox {
   metadata: {
     name: string;
     namespace: string;
@@ -13,11 +14,13 @@ interface K8sDeployment {
     annotations?: Record<string, string>;
     creationTimestamp: string;
   };
+  spec?: {
+    operatingMode?: 'Running' | 'Suspended';
+  };
   status?: {
-    availableReplicas?: number;
-    readyReplicas?: number;
-    replicas?: number;
-    conditions?: Array<{ type: string; status: string }>;
+    conditions?: Array<{ type: string; status: string; reason?: string }>;
+    serviceFQDN?: string;
+    service?: string;
   };
 }
 
@@ -27,28 +30,36 @@ interface K8sRoute {
   status?: { ingress?: Array<{ host: string }> };
 }
 
-function deploymentToInstance(dep: K8sDeployment, routeUrl: string): HermesInstance {
-  const ann = dep.metadata.annotations || {};
-  let status: InstanceStatus = 'Unknown';
-  if (dep.status?.replicas === 0 || (!dep.status?.replicas && dep.status?.availableReplicas === undefined)) {
-    status = 'Stopped';
-  } else if (dep.status?.availableReplicas && dep.status.availableReplicas > 0) {
+function sandboxToInstance(sandbox: K8sSandbox, routeUrl: string): HermesInstance {
+  const ann = sandbox.metadata.annotations || {};
+  const conditions = sandbox.status?.conditions || [];
+  const mode = sandbox.spec?.operatingMode;
+
+  const ready = conditions.find((c) => c.type === 'Ready');
+  const finished = conditions.find((c) => c.type === 'Finished');
+
+  let status: InstanceStatus = 'Pending';
+  if (mode === 'Suspended' || ready?.reason === 'SandboxSuspended') {
+    status = 'Suspended';
+  } else if (finished?.status === 'True' && finished.reason === 'PodFailed') {
+    status = 'Error';
+  } else if (ready?.status === 'True') {
     status = 'Running';
-  } else if (dep.status?.replicas && dep.status.replicas > 0) {
+  } else if (ready?.status === 'False' && ready.reason === 'DependenciesNotReady') {
     status = 'Starting';
-  } else {
-    status = 'Pending';
+  } else if (conditions.length > 0) {
+    status = 'Starting';
   }
 
-  const instanceName = dep.metadata.labels['app.kubernetes.io/instance'] || dep.metadata.name.replace('hermes-', '');
+  const instanceName = sandbox.metadata.labels['app.kubernetes.io/instance'] || sandbox.metadata.name.replace('hermes-', '');
   return {
     name: instanceName,
     displayName: ann['hermes-agent-deployer/display-name'] || instanceName,
-    namespace: dep.metadata.namespace,
-    agentType: dep.metadata.labels['hermes-agent-deployer/agent-type'] || 'hermes',
+    namespace: sandbox.metadata.namespace,
+    agentType: sandbox.metadata.labels['hermes-agent-deployer/agent-type'] || 'hermes',
     status,
     routeUrl,
-    createdAt: dep.metadata.creationTimestamp,
+    createdAt: sandbox.metadata.creationTimestamp,
     config: {
       modelName: ann['hermes-agent-deployer/model-name'] || '',
       modelUrl: ann['hermes-agent-deployer/model-url'] || '',
@@ -64,22 +75,22 @@ export async function listInstances(): Promise<HermesInstance[]> {
 
   for (const ns of namespaces) {
     try {
-      const deps = await k8sFetch<{ items: K8sDeployment[] }>(
-        `/apis/apps/v1/namespaces/${ns}/deployments?labelSelector=${encodeURIComponent(LABEL_SELECTOR)}`,
+      const sandboxes = await k8sFetch<{ items: K8sSandbox[] }>(
+        `/apis/${SANDBOX_API}/namespaces/${ns}/sandboxes?labelSelector=${encodeURIComponent(LABEL_SELECTOR)}`,
       );
 
-      for (const dep of deps.items) {
+      for (const sb of sandboxes.items) {
         let routeUrl = '';
         try {
           const route = await k8sFetch<K8sRoute>(
-            `/apis/route.openshift.io/v1/namespaces/${ns}/routes/${dep.metadata.name}`,
+            `/apis/route.openshift.io/v1/namespaces/${ns}/routes/${sb.metadata.name}`,
           );
           const host = route.status?.ingress?.[0]?.host || route.spec?.host || '';
           if (host) routeUrl = `https://${host}`;
         } catch {
           // route may not exist yet
         }
-        instances.push(deploymentToInstance(dep, routeUrl));
+        instances.push(sandboxToInstance(sb, routeUrl));
       }
     } catch {
       // user may not have access to this namespace
@@ -116,18 +127,6 @@ export async function createInstance(req: CreateInstanceRequest): Promise<Hermes
       apiPath: `/api/v1/namespaces/${req.namespace}/secrets/${secret.metadata.name}`,
     });
 
-    const pvc = buildPvc(req);
-    await k8sFetch(`/api/v1/namespaces/${req.namespace}/persistentvolumeclaims`, {
-      method: 'POST',
-      body: JSON.stringify(pvc),
-    });
-    created.push({
-      kind: 'PVC',
-      name: pvc.metadata.name,
-      namespace: req.namespace,
-      apiPath: `/api/v1/namespaces/${req.namespace}/persistentvolumeclaims/${pvc.metadata.name}`,
-    });
-
     const sa = buildServiceAccount(req);
     await k8sFetch(`/api/v1/namespaces/${req.namespace}/serviceaccounts`, {
       method: 'POST',
@@ -140,16 +139,16 @@ export async function createInstance(req: CreateInstanceRequest): Promise<Hermes
       apiPath: `/api/v1/namespaces/${req.namespace}/serviceaccounts/${sa.metadata.name}`,
     });
 
-    const deployment = buildDeployment(req, defaults);
-    await k8sFetch(`/apis/apps/v1/namespaces/${req.namespace}/deployments`, {
+    const sandbox = buildSandbox(req, defaults);
+    await k8sFetch(`/apis/${SANDBOX_API}/namespaces/${req.namespace}/sandboxes`, {
       method: 'POST',
-      body: JSON.stringify(deployment),
+      body: JSON.stringify(sandbox),
     });
     created.push({
-      kind: 'Deployment',
-      name: deployment.metadata.name,
+      kind: 'Sandbox',
+      name: sandbox.metadata.name,
       namespace: req.namespace,
-      apiPath: `/apis/apps/v1/namespaces/${req.namespace}/deployments/${deployment.metadata.name}`,
+      apiPath: `/apis/${SANDBOX_API}/namespaces/${req.namespace}/sandboxes/${sandbox.metadata.name}`,
     });
 
     const service = buildService(req);
@@ -196,24 +195,29 @@ export async function deleteInstance(name: string, namespace: string): Promise<v
   const deletions = [
     k8sFetch(`/apis/route.openshift.io/v1/namespaces/${namespace}/routes/${prefix}`, { method: 'DELETE' }).catch(() => {}),
     k8sFetch(`/api/v1/namespaces/${namespace}/services/${prefix}`, { method: 'DELETE' }).catch(() => {}),
-    k8sFetch(`/apis/apps/v1/namespaces/${namespace}/deployments/${prefix}`, { method: 'DELETE' }).catch(() => {}),
+    k8sFetch(`/apis/${SANDBOX_API}/namespaces/${namespace}/sandboxes/${prefix}`, { method: 'DELETE' }).catch(() => {}),
     k8sFetch(`/api/v1/namespaces/${namespace}/serviceaccounts/${prefix}`, { method: 'DELETE' }).catch(() => {}),
     k8sFetch(`/api/v1/namespaces/${namespace}/secrets/${prefix}-credentials`, { method: 'DELETE' }).catch(() => {}),
     k8sFetch(`/api/v1/namespaces/${namespace}/secrets/${prefix}-tls`, { method: 'DELETE' }).catch(() => {}),
-    k8sFetch(`/api/v1/namespaces/${namespace}/persistentvolumeclaims/${prefix}-data`, { method: 'DELETE' }).catch(() => {}),
+    // PVC created by volumeClaimTemplates follows StatefulSet naming: {template-name}-{sandbox-name}-0
+    k8sFetch(`/api/v1/namespaces/${namespace}/persistentvolumeclaims/hermes-data-${prefix}-0`, { method: 'DELETE' }).catch(() => {}),
   ];
   await Promise.all(deletions);
 }
 
-export async function scaleInstance(name: string, namespace: string, replicas: number): Promise<void> {
-  await k8sFetch(`/apis/apps/v1/namespaces/${namespace}/deployments/hermes-${name}/scale`, {
-    method: 'PUT',
-    body: JSON.stringify({
-      apiVersion: 'autoscaling/v1',
-      kind: 'Scale',
-      metadata: { name: `hermes-${name}`, namespace },
-      spec: { replicas },
-    }),
+export async function suspendInstance(name: string, namespace: string): Promise<void> {
+  await k8sFetch(`/apis/${SANDBOX_API}/namespaces/${namespace}/sandboxes/hermes-${name}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/merge-patch+json' },
+    body: JSON.stringify({ spec: { operatingMode: 'Suspended' } }),
+  });
+}
+
+export async function resumeInstance(name: string, namespace: string): Promise<void> {
+  await k8sFetch(`/apis/${SANDBOX_API}/namespaces/${namespace}/sandboxes/hermes-${name}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/merge-patch+json' },
+    body: JSON.stringify({ spec: { operatingMode: 'Running' } }),
   });
 }
 

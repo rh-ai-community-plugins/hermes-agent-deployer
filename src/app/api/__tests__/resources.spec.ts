@@ -1,4 +1,4 @@
-import { buildSecret, buildPvc, buildServiceAccount, buildDeployment, buildService, buildRoute } from '../resources';
+import { buildSecret, buildServiceAccount, buildSandbox, buildService, buildRoute } from '../resources';
 import { CreateInstanceRequest } from '../../types';
 import { InstanceDefaults } from '../config';
 
@@ -53,15 +53,6 @@ describe('buildSecret', () => {
   });
 });
 
-describe('buildPvc', () => {
-  it('creates a PVC with the requested size', () => {
-    const pvc = buildPvc(req);
-    expect(pvc.metadata.name).toBe('hermes-test-agent-data');
-    expect(pvc.spec.resources.requests.storage).toBe('2Gi');
-    expect(pvc.spec.accessModes).toEqual(['ReadWriteOnce']);
-  });
-});
-
 describe('buildServiceAccount', () => {
   it('creates a basic SA without OAuth annotations', () => {
     const sa = buildServiceAccount(req);
@@ -77,31 +68,55 @@ describe('buildServiceAccount', () => {
   });
 });
 
-describe('buildDeployment', () => {
-  it('creates a deployment with hermes-sandbox container', () => {
-    const dep = buildDeployment(req, defaults);
-    expect(dep.metadata.name).toBe('hermes-test-agent');
-    expect(dep.spec.replicas).toBe(1);
-    const containers = dep.spec.template.spec.containers;
+describe('buildSandbox', () => {
+  it('creates a Sandbox CR with correct apiVersion and kind', () => {
+    const sandbox = buildSandbox(req, defaults);
+    expect(sandbox.apiVersion).toBe('agents.x-k8s.io/v1beta1');
+    expect(sandbox.kind).toBe('Sandbox');
+    expect(sandbox.metadata.name).toBe('hermes-test-agent');
+  });
+
+  it('sets operatingMode to Running', () => {
+    const sandbox = buildSandbox(req, defaults);
+    expect(sandbox.spec.operatingMode).toBe('Running');
+  });
+
+  it('includes hermes-sandbox container in podTemplate', () => {
+    const sandbox = buildSandbox(req, defaults);
+    const containers = sandbox.spec.podTemplate.spec.containers;
     expect(containers[0].name).toBe('hermes-sandbox');
     expect(containers[0].image).toBe(defaults.hermesImage);
   });
 
   it('stores instance metadata in annotations', () => {
-    const dep = buildDeployment(req, defaults);
-    expect(dep.metadata.annotations['hermes-agent-deployer/model-name']).toBe('llama-3');
+    const sandbox = buildSandbox(req, defaults);
+    expect(sandbox.metadata.annotations['hermes-agent-deployer/model-name']).toBe('llama-3');
+  });
+
+  it('includes volumeClaimTemplates for PVC', () => {
+    const sandbox = buildSandbox(req, defaults);
+    expect(sandbox.spec.volumeClaimTemplates).toHaveLength(1);
+    expect(sandbox.spec.volumeClaimTemplates[0].metadata.name).toBe('hermes-data');
+    expect(sandbox.spec.volumeClaimTemplates[0].spec.resources.requests.storage).toBe('2Gi');
+    expect(sandbox.spec.volumeClaimTemplates[0].spec.accessModes).toEqual(['ReadWriteOnce']);
+  });
+
+  it('propagates labels to podTemplate metadata', () => {
+    const sandbox = buildSandbox(req, defaults);
+    expect(sandbox.spec.podTemplate.metadata.labels['app.kubernetes.io/managed-by']).toBe('hermes-agent-deployer');
+    expect(sandbox.spec.podTemplate.metadata.labels['app.kubernetes.io/instance']).toBe('test-agent');
   });
 
   it('adds oauth-proxy sidecar when enabled', () => {
-    const dep = buildDeployment({ ...req, oauthProxyEnabled: true }, defaults);
-    const containers = dep.spec.template.spec.containers;
+    const sandbox = buildSandbox({ ...req, oauthProxyEnabled: true }, defaults);
+    const containers = sandbox.spec.podTemplate.spec.containers;
     expect(containers).toHaveLength(2);
     expect(containers[1].name).toBe('oauth-proxy');
   });
 
   it('has only hermes-sandbox container when oauth disabled', () => {
-    const dep = buildDeployment(req, defaults);
-    expect(dep.spec.template.spec.containers).toHaveLength(1);
+    const sandbox = buildSandbox(req, defaults);
+    expect(sandbox.spec.podTemplate.spec.containers).toHaveLength(1);
   });
 });
 
