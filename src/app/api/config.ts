@@ -18,7 +18,7 @@ export interface InstanceDefaults {
 }
 
 const FALLBACK: InstanceDefaults = {
-  hermesImage: 'quay.io/rh-ai-community-plugins/hermes-sandbox:0.1.0',
+  hermesImage: 'quay.io/rh-ai-community-plugins/hermes-sandbox:20260730',
   oauthProxy: {
     enabled: true,
     image: 'registry.redhat.io/openshift4/ose-oauth-proxy-rhel9:v4.17',
