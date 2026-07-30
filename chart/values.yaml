@@ -38,7 +38,7 @@ containerSecurityContext:
     type: RuntimeDefault
 
 route:
-  enabled: true
+  enabled: false
 
 nodeSelector: {}
 tolerations: []
@@ -46,7 +46,7 @@ affinity: {}
 
 # Instance defaults served as /config.json to the frontend
 instanceDefaults:
-  hermesImage: quay.io/rh-ai-community-plugins/hermes-sandbox:20260730
+  hermesImage: quay.io/rh-ai-community-plugins/hermes-sandbox:0.2.0
   oauthProxy:
     enabled: true
     image: registry.redhat.io/openshift4/ose-oauth-proxy-rhel9:v4.17
@@ -78,7 +78,7 @@ bff:
   image:
     repository: quay.io/rh-ai-community-plugins/hermes-agent-deployer-bff
     tag: ""
-    pullPolicy: Always
+    pullPolicy: IfNotPresent
   service:
     type: ClusterIP
     port: 3000

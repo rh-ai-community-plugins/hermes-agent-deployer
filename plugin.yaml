@@ -2,7 +2,7 @@
 name: hermes-agent-deployer
 displayName: Hermes Agent Deployer
 description: Deploy and manage Hermes Agent instances on OpenShift via RHOAI Dashboard
-version: 0.1.0
+version: 0.2.0
 
 # --- Maintainer (required) ---
 maintainer:
@@ -12,18 +12,18 @@ maintainer:
 # --- RHOAI compatibility (required) ---
 rhoai_compatibility:
   min_version: "3.4.0"
-  tested_versions: ["3.4.0"]
+  tested_versions: ["3.4.2"]
 
 # --- Deployment (required) ---
 deployment_model: per-project
 
 image:
   repository: quay.io/rh-ai-community-plugins/hermes-agent-deployer
-  tag: "0.1.0"
+  tag: "0.2.0"
 
 bff_image:
   repository: quay.io/rh-ai-community-plugins/hermes-agent-deployer-bff
-  tag: "0.1.0"
+  tag: "0.2.0"
 
 # --- Installation (required) ---
 install:
@@ -32,6 +32,7 @@ install:
     chart_path: chart/
     registry: oci://quay.io/rh-ai-community-plugins/hermes-agent-deployer-chart
   prerequisites:
+    - "Agent Sandbox CRDs v0.5.2+ installed (agents.x-k8s.io)"
     - Access to a namespace with permission to create Deployments, Services, Routes, Secrets, PVCs, and ServiceAccounts
   instructions: https://github.com/rh-ai-community-plugins/hermes-agent-deployer/blob/main/docs/deployment
 

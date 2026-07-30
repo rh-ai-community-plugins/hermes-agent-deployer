@@ -1,6 +1,6 @@
 {
   "name": "hermes-agent-deployer-bff",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "BFF service for the Hermes Agent Deployer RHOAI dashboard plugin",
   "main": "dist/server.js",
   "scripts": {

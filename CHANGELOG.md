@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.2.0 (Unreleased)
+## 0.2.0 (2026-07-30)
 
 Complete rewrite to align with the [hello-world](https://github.com/rh-ai-community-plugins/hello-world) reference plugin.
 

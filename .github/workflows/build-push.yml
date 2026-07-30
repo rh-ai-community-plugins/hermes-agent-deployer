@@ -67,3 +67,52 @@ jobs:
           image: hermes-agent-deployer-bff
           tags: ${{ inputs.version }}
           registry: quay.io/rh-ai-community-plugins
+
+  build-and-push-sandbox:
+    runs-on: ubuntu-latest
+    name: Build and push sandbox container image
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Login to Quay.io
+        uses: redhat-actions/podman-login@v1
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_USERNAME }}
+          password: ${{ secrets.QUAY_TOKEN }}
+
+      - name: Build sandbox image
+        uses: redhat-actions/buildah-build@v2
+        with:
+          image: hermes-sandbox
+          tags: ${{ inputs.version }}
+          containerfiles: |
+            ./images/hermes-sandbox/Containerfile
+          context: ./images/hermes-sandbox
+
+      - name: Push sandbox to Quay.io
+        uses: redhat-actions/push-to-registry@v2
+        with:
+          image: hermes-sandbox
+          tags: ${{ inputs.version }}
+          registry: quay.io/rh-ai-community-plugins
+
+  push-chart:
+    runs-on: ubuntu-latest
+    name: Package and push Helm chart to OCI
+    needs: [build-and-push, build-and-push-bff, build-and-push-sandbox]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+
+      - name: Login to Quay.io OCI registry
+        run: helm registry login quay.io -u ${{ secrets.QUAY_USERNAME }} -p ${{ secrets.QUAY_TOKEN }}
+
+      - name: Package and push chart
+        run: |
+          helm package chart/
+          helm push hermes-agent-deployer-chart-*.tgz oci://quay.io/rh-ai-community-plugins

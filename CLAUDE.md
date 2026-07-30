@@ -40,7 +40,14 @@ make validate                                       # Lint + typecheck + test on
 make register                                       # Register plugin with dashboard
 ```
 
-Helm chart:
+Install from OCI (v0.2.0+):
+```bash
+helm repo add hermes oci://quay.io/rh-ai-community-plugins
+helm repo update
+helm install hermes-deployer hermes/hermes-agent-deployer-chart --version 0.2.0
+```
+
+Install from local repo:
 ```bash
 helm template hermes-deployer chart/ | oc apply --dry-run=client -f -
 helm install hermes-deployer chart/
@@ -135,8 +142,8 @@ Helm `values.yaml` → `instanceDefaults` section → ConfigMap → mounted as `
 - **Agent Sandbox CRDs v0.5.2+ required**: `kubectl apply -f https://github.com/kubernetes-sigs/agent-sandbox/releases/download/v0.5.2/sandbox.yaml`
 - **OpenShift-only**: uses Route API (`route.openshift.io/v1`), OAuth proxy, ServiceAccount OAuth redirect references
 - **BFF for listing**: instance listing via `/hermes-agent-deployer/api/instances` (BFF, queries `/apis/agents.x-k8s.io/v1beta1/namespaces/{ns}/sandboxes`). Create/delete/suspend/resume via `/api/k8s/` (dashboard proxy)
-- **RHOAI 3.4.2+**: uses `MODULE_FEDERATION_CONFIG` env var on dashboard deployment. Plugin registration via `backend` wrapper format with `proxyService` for BFF proxy
-- **Dashboard operator must be scaled down** during plugin registration to prevent config revert (script handles this with warnings)
+- **RHOAI 3.4.2+**: uses `MODULE_FEDERATION_CONFIG` env var on dashboard deployment. Plugin registration via `backend` wrapper format with `proxyService` for BFF proxy. Dashboard operator must be scaled down during registration to prevent config revert
+- **Helm chart**: v0.2.0+ published to OCI (`oci://quay.io/rh-ai-community-plugins/hermes-agent-deployer-chart`). Route disabled by default (dashboard proxies internally)
 - **PatternFly 6** component library (not 5)
 - **UBI9 base images**, non-root UID 1001, port 8080 (frontend) / 3000 (BFF)
 - **Platform**: All podman builds must include `--platform linux/amd64` (Mac ARM → OpenShift x86)
@@ -144,14 +151,15 @@ Helm `values.yaml` → `instanceDefaults` section → ConfigMap → mounted as `
 - **Test conventions**: `*.spec.ts` (frontend), `*.test.ts` (BFF)
 - **[SHARED] components**: CommunityNavIcon and CommunityBanner are identical across all community plugins — do not modify
 - **OpenShell integration** (optional, disabled by default): Helm `openshell` section, SCC binding, network policy ConfigMap, per-instance policy tier annotation
-- **Sandbox image**: multi-stage UBI9 build; Hermes Agent + WebUI auto-configured via entrypoint env var injection; HERMES_WEBUI_AGENT_DIR must be `/opt/hermes/src` for agent features
+- **Sandbox image**: multi-stage UBI9 build; Hermes Agent + WebUI auto-configured via entrypoint env var injection; HERMES_WEBUI_AGENT_DIR must be `/opt/hermes/src` for agent features. Versions pinned semver-style (v0.2.0), not date-based
 - **Auth model**: OAuth proxy (sidecar) + `HERMES_WEBUI_NO_AUTH=true` disables password; standalone instances get auto-generated password
 
 ## Container Images
 
-| Image | Registry | Role |
-|-------|----------|------|
-| `hermes-agent-deployer` | `quay.io/rh-ai-community-plugins/` | Plugin frontend (nginx) |
-| `hermes-agent-deployer-bff` | `quay.io/rh-ai-community-plugins/` | BFF service (Node.js) |
-| `hermes-sandbox` | `quay.io/rh-ai-community-plugins/` | Agent runtime per instance |
-| `ose-oauth-proxy-rhel9:v4.17` | `registry.redhat.io/openshift4/` | OAuth sidecar per instance |
+| Image | Registry | Tag | Role |
+|-------|----------|-----|------|
+| `hermes-agent-deployer` | `quay.io/rh-ai-community-plugins/` | `0.2.0` | Plugin frontend (nginx) |
+| `hermes-agent-deployer-bff` | `quay.io/rh-ai-community-plugins/` | `0.2.0` | BFF service (Node.js) |
+| `hermes-sandbox` | `quay.io/rh-ai-community-plugins/` | `0.2.0` | Agent runtime per instance |
+| `hermes-agent-deployer-chart` | `oci://quay.io/rh-ai-community-plugins/` | `0.2.0` | Helm chart (OCI) |
+| `ose-oauth-proxy-rhel9:v4.17` | `registry.redhat.io/openshift4/` | `v4.17` | OAuth sidecar per instance |

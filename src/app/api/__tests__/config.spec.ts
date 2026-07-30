@@ -31,7 +31,7 @@ describe('getInstanceDefaults', () => {
 
     const { getInstanceDefaults } = await import('../config');
     const result = await getInstanceDefaults();
-    expect(result.hermesImage).toBe('quay.io/rh-ai-community-plugins/hermes-sandbox:0.1.0');
+    expect(result.hermesImage).toBe('quay.io/rh-ai-community-plugins/hermes-sandbox:0.2.0');
     expect(result.pvc.size).toBe('1Gi');
   });
 
@@ -43,7 +43,7 @@ describe('getInstanceDefaults', () => {
 
     const { getInstanceDefaults } = await import('../config');
     const result = await getInstanceDefaults();
-    expect(result.hermesImage).toBe('quay.io/rh-ai-community-plugins/hermes-sandbox:0.1.0');
+    expect(result.hermesImage).toBe('quay.io/rh-ai-community-plugins/hermes-sandbox:0.2.0');
   });
 
   it('caches the result on subsequent calls', async () => {

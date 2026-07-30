@@ -2,12 +2,22 @@
 
 ## Prerequisites
 
-- OpenShift 4.14+ with RHOAI 3.4+ installed
+- OpenShift 4.14+ with RHOAI 3.4.2+ installed
+- Agent Sandbox CRDs v0.5.2+ installed (`oc apply -f https://github.com/kubernetes-sigs/agent-sandbox/releases/download/v0.5.2/sandbox.yaml`)
 - Helm 3.10+
 - `oc` CLI logged in with access to `redhat-ods-applications` namespace (to register the plugin) and a target namespace for the plugin deployment
-- python3 (used by the registration script)
+- python3 (for inline registration commands)
 
 ## Install
+
+### From OCI Registry
+
+```bash
+helm install hermes-deployer oci://quay.io/rh-ai-community-plugins/hermes-agent-deployer-chart \
+  --version 0.2.0 \
+  --namespace hermes-deployer \
+  --create-namespace
+```
 
 ### From Local Checkout
 
@@ -25,29 +35,79 @@ helm template hermes-deployer chart/ | oc apply --dry-run=client -f -
 
 ## Dashboard Registration
 
-Register the plugin with the RHOAI dashboard using the included script:
+Append the plugin entry to the dashboard's Module Federation config:
 
 ```bash
-./scripts/register-plugin.sh register
+oc get configmap federation-config \
+  -n redhat-ods-applications \
+  -o jsonpath='{.data.module-federation-config\.json}' \
+| python3 -c "
+import json, sys
+config = json.load(sys.stdin)
+config.append({
+    'name': 'hermesAgentDeployer',
+    'backend': {
+        'remoteEntry': '/remoteEntry.js',
+        'authorize': False,
+        'tls': False,
+        'service': {'name': 'hermes-agent-deployer', 'namespace': 'hermes-deployer', 'port': 8080}
+    },
+    'proxyService': [{
+        'path': '/hermes-agent-deployer/api',
+        'pathRewrite': '/api',
+        'authorize': True,
+        'tls': False,
+        'service': {'name': 'hermes-agent-deployer-bff', 'namespace': 'hermes-deployer', 'port': 3000}
+    }]
+})
+print(json.dumps(config))
+" > /tmp/mf-config.json
+
+oc set env deployment/rhods-dashboard \
+  -n redhat-ods-applications \
+  "MODULE_FEDERATION_CONFIG=$(cat /tmp/mf-config.json)"
 ```
 
-The script is idempotent — running it again is safe. It automatically:
-- Checks if the plugin is already registered (skips if so)
-- Backs up the current config to `/tmp/` before changes
-- Prints a restore command in case you need to rollback
+If installing to a different namespace, change `hermes-deployer` in the JSON above.
 
 Dashboard pods restart automatically. Allow ~2 minutes for the rollout.
 
-To check registration status or unregister:
+### Frontend Only (no BFF)
+
+If you installed with `--set bff.enabled=false`, omit the `proxyService` block:
 
 ```bash
-./scripts/register-plugin.sh status
-./scripts/register-plugin.sh unregister
+oc get configmap federation-config \
+  -n redhat-ods-applications \
+  -o jsonpath='{.data.module-federation-config\.json}' \
+| python3 -c "
+import json, sys
+config = json.load(sys.stdin)
+config.append({
+    'name': 'hermesAgentDeployer',
+    'backend': {
+        'remoteEntry': '/remoteEntry.js',
+        'authorize': False,
+        'tls': False,
+        'service': {'name': 'hermes-agent-deployer', 'namespace': 'hermes-deployer', 'port': 8080}
+    }
+})
+print(json.dumps(config))
+" > /tmp/mf-config.json
+
+oc set env deployment/rhods-dashboard \
+  -n redhat-ods-applications \
+  "MODULE_FEDERATION_CONFIG=$(cat /tmp/mf-config.json)"
 ```
 
-If the plugin is deployed to a namespace other than `hermes-deployer`:
+### Using the Registration Script
+
+If you have the repo cloned, you can use the included script instead:
 
 ```bash
+./scripts/register-plugin.sh register
+./scripts/register-plugin.sh status
+./scripts/register-plugin.sh unregister
 PLUGIN_NS=my-namespace ./scripts/register-plugin.sh register
 ```
 
@@ -57,8 +117,11 @@ PLUGIN_NS=my-namespace ./scripts/register-plugin.sh register
 # Check plugin pods are running
 oc get pods -n hermes-deployer
 
-# Check dashboard registration
-./scripts/register-plugin.sh status
+# Check dashboard has the plugin registered
+oc get deployment/rhods-dashboard -n redhat-ods-applications \
+  -o jsonpath='{.spec.template.spec.containers[0].env[?(@.name=="MODULE_FEDERATION_CONFIG")].value}' \
+| python3 -c "import json,sys; [print('  registered') for e in json.load(sys.stdin) if e['name']=='hermesAgentDeployer']" \
+|| echo "  not registered"
 
 # Check remoteEntry.js is reachable from the dashboard
 oc exec -n redhat-ods-applications deploy/rhods-dashboard -c rhods-dashboard \
@@ -75,7 +138,7 @@ oc exec -n redhat-ods-applications deploy/rhods-dashboard -c rhods-dashboard \
 | `image.repository` | `quay.io/rh-ai-community-plugins/hermes-agent-deployer` | Frontend image |
 | `bff.enabled` | `true` | Deploy BFF service |
 | `bff.image.repository` | `quay.io/rh-ai-community-plugins/hermes-agent-deployer-bff` | BFF image |
-| `instanceDefaults.hermesImage` | `quay.io/rh-ai-community-plugins/hermes-sandbox:0.1.0` | Agent runtime image |
+| `instanceDefaults.hermesImage` | `quay.io/rh-ai-community-plugins/hermes-sandbox:0.2.0` | Agent runtime image |
 | `instanceDefaults.oauthProxy.enabled` | `true` | OAuth sidecar on new instances |
 | `instanceDefaults.pvc.size` | `1Gi` | PVC size per instance |
 
@@ -110,7 +173,7 @@ Before users can deploy instances, the `hermes-sandbox` image must be pullable f
 
 ```bash
 oc run sandbox-pull-test --rm -it --restart=Never \
-  --image=quay.io/rh-ai-community-plugins/hermes-sandbox:0.1.0 \
+  --image=quay.io/rh-ai-community-plugins/hermes-sandbox:0.2.0 \
   -- echo "Image pull OK"
 ```
 
@@ -118,8 +181,23 @@ If this fails with `ImagePullBackOff` or `ErrImagePull`, instance creation will 
 
 ## Uninstall
 
+Remove the plugin entry from the dashboard config, then uninstall the Helm release:
+
 ```bash
-./scripts/register-plugin.sh unregister
+oc get configmap federation-config \
+  -n redhat-ods-applications \
+  -o jsonpath='{.data.module-federation-config\.json}' \
+| python3 -c "
+import json, sys
+config = json.load(sys.stdin)
+config = [e for e in config if e.get('name') != 'hermesAgentDeployer']
+print(json.dumps(config))
+" > /tmp/mf-config.json
+
+oc set env deployment/rhods-dashboard \
+  -n redhat-ods-applications \
+  "MODULE_FEDERATION_CONFIG=$(cat /tmp/mf-config.json)"
+
 helm uninstall hermes-deployer -n hermes-deployer
 ```
 

@@ -39,10 +39,13 @@ oc apply -f https://github.com/kubernetes-sigs/agent-sandbox/releases/download/v
 #### Step 2: Install the Plugin
 
 ```bash
-helm install hermes-deployer chart/ \
+helm install hermes-deployer oci://quay.io/rh-ai-community-plugins/hermes-agent-deployer-chart \
+  --version 0.2.0 \
   --namespace hermes-deployer \
   --create-namespace
 ```
+
+Or from a local checkout: `helm install hermes-deployer chart/ --namespace hermes-deployer --create-namespace`
 
 This creates Deployments and Services for the frontend (nginx) and BFF (Node.js). To skip the BFF, add `--set bff.enabled=false`.
 
@@ -50,28 +53,59 @@ Users deploying instances need `admin` or `edit` role in their target namespace.
 
 #### Step 3: Register with the Dashboard
 
+Read the current Module Federation config, append the plugin entry, and apply it:
+
 ```bash
-./scripts/register-plugin.sh register
+oc get configmap federation-config \
+  -n redhat-ods-applications \
+  -o jsonpath='{.data.module-federation-config\.json}' \
+| python3 -c "
+import json, sys
+config = json.load(sys.stdin)
+config.append({
+    'name': 'hermesAgentDeployer',
+    'backend': {
+        'remoteEntry': '/remoteEntry.js',
+        'authorize': False,
+        'tls': False,
+        'service': {'name': 'hermes-agent-deployer', 'namespace': 'hermes-deployer', 'port': 8080}
+    },
+    'proxyService': [{
+        'path': '/hermes-agent-deployer/api',
+        'pathRewrite': '/api',
+        'authorize': True,
+        'tls': False,
+        'service': {'name': 'hermes-agent-deployer-bff', 'namespace': 'hermes-deployer', 'port': 3000}
+    }]
+})
+print(json.dumps(config))
+" > /tmp/mf-config.json
+
+oc set env deployment/rhods-dashboard \
+  -n redhat-ods-applications \
+  "MODULE_FEDERATION_CONFIG=$(cat /tmp/mf-config.json)"
 ```
 
-The script:
-- Scales down the RHOAI operator (to prevent config revert)
-- Patches the dashboard deployment's `MODULE_FEDERATION_CONFIG` env var
-- Is idempotent — running it again is safe
-- Backs up the current config before making changes
-- Dashboard pods restart automatically (~2 minutes)
+Dashboard pods restart automatically (~2 minutes). If installing to a different namespace, change `hermes-deployer` in the JSON above.
 
-To check registration status or unregister:
+If you have the repo cloned, you can also use: `./scripts/register-plugin.sh register`
+
+To unregister:
 
 ```bash
-./scripts/register-plugin.sh status
-./scripts/register-plugin.sh unregister
-```
+oc get configmap federation-config \
+  -n redhat-ods-applications \
+  -o jsonpath='{.data.module-federation-config\.json}' \
+| python3 -c "
+import json, sys
+config = json.load(sys.stdin)
+config = [e for e in config if e.get('name') != 'hermesAgentDeployer']
+print(json.dumps(config))
+" > /tmp/mf-config.json
 
-If installing to a custom namespace, set `PLUGIN_NS`:
-
-```bash
-PLUGIN_NS=my-namespace ./scripts/register-plugin.sh register
+oc set env deployment/rhods-dashboard \
+  -n redhat-ods-applications \
+  "MODULE_FEDERATION_CONFIG=$(cat /tmp/mf-config.json)"
 ```
 
 #### Step 4: Deploy an Instance
