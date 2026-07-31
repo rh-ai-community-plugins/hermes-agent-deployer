@@ -41,11 +41,11 @@ oc apply -f https://github.com/kubernetes-sigs/agent-sandbox/releases/download/v
 ```bash
 helm install hermes-deployer oci://quay.io/rh-ai-community-plugins/hermes-agent-deployer-chart \
   --version 0.2.0 \
-  --namespace hermes-deployer \
+  --namespace cp-hermes-deployer \
   --create-namespace
 ```
 
-Or from a local checkout: `helm install hermes-deployer chart/ --namespace hermes-deployer --create-namespace`
+Or from a local checkout: `helm install hermes-deployer chart/ --namespace cp-hermes-deployer --create-namespace`
 
 This creates Deployments and Services for the frontend (nginx) and BFF (Node.js). To skip the BFF, add `--set bff.enabled=false`.
 
@@ -68,14 +68,14 @@ config.append({
         'remoteEntry': '/remoteEntry.js',
         'authorize': False,
         'tls': False,
-        'service': {'name': 'hermes-agent-deployer', 'namespace': 'hermes-deployer', 'port': 8080}
+        'service': {'name': 'hermes-agent-deployer', 'namespace': 'cp-hermes-deployer', 'port': 8080}
     },
     'proxyService': [{
         'path': '/hermes-agent-deployer/api',
         'pathRewrite': '/api',
         'authorize': True,
         'tls': False,
-        'service': {'name': 'hermes-agent-deployer-bff', 'namespace': 'hermes-deployer', 'port': 3000}
+        'service': {'name': 'hermes-agent-deployer-bff', 'namespace': 'cp-hermes-deployer', 'port': 3000}
     }]
 })
 print(json.dumps(config))
@@ -86,7 +86,7 @@ oc set env deployment/rhods-dashboard \
   "MODULE_FEDERATION_CONFIG=$(cat /tmp/mf-config.json)"
 ```
 
-Dashboard pods restart automatically (~2 minutes). If installing to a different namespace, change `hermes-deployer` in the JSON above.
+Dashboard pods restart automatically (~2 minutes). If installing to a different namespace, change `cp-hermes-deployer` in the JSON above.
 
 If you have the repo cloned, you can also use: `./scripts/register-plugin.sh register`
 

@@ -4,7 +4,7 @@ set -euo pipefail
 PLUGIN_NAME="hermesAgentDeployer"
 DASHBOARD_NS="${DASHBOARD_NS:-redhat-ods-applications}"
 DASHBOARD_DEPLOY="${DASHBOARD_DEPLOY:-rhods-dashboard}"
-PLUGIN_NS="${PLUGIN_NS:-hermes-deployer}"
+PLUGIN_NS="${PLUGIN_NS:-cp-hermes-deployer}"
 FRONTEND_SVC="${FRONTEND_SVC:-hermes-agent-deployer}"
 FRONTEND_PORT="${FRONTEND_PORT:-8080}"
 BFF_SVC="${BFF_SVC:-hermes-agent-deployer-bff}"
@@ -34,7 +34,7 @@ Commands:
 
 Environment variables:
   DASHBOARD_NS      Dashboard namespace       (default: redhat-ods-applications)
-  PLUGIN_NS         Plugin namespace          (default: hermes-deployer)
+  PLUGIN_NS         Plugin namespace          (default: cp-hermes-deployer)
   FRONTEND_SVC      Frontend service name     (default: hermes-agent-deployer)
   BFF_SVC           BFF service name          (default: hermes-agent-deployer-bff)
 

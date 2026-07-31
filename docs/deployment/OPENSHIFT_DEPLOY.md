@@ -13,24 +13,24 @@
 ### From OCI Registry
 
 ```bash
-helm install hermes-deployer oci://quay.io/rh-ai-community-plugins/hermes-agent-deployer-chart \
+helm install cp-hermes-deployer oci://quay.io/rh-ai-community-plugins/hermes-agent-deployer-chart \
   --version 0.2.0 \
-  --namespace hermes-deployer \
+  --namespace cp-hermes-deployer \
   --create-namespace
 ```
 
 ### From Local Checkout
 
 ```bash
-helm install hermes-deployer chart/ \
-  --namespace hermes-deployer \
+helm install cp-hermes-deployer chart/ \
+  --namespace cp-hermes-deployer \
   --create-namespace
 ```
 
 ### Dry Run
 
 ```bash
-helm template hermes-deployer chart/ | oc apply --dry-run=client -f -
+helm template cp-hermes-deployer chart/ | oc apply --dry-run=client -f -
 ```
 
 ## Dashboard Registration
@@ -50,14 +50,14 @@ config.append({
         'remoteEntry': '/remoteEntry.js',
         'authorize': False,
         'tls': False,
-        'service': {'name': 'hermes-agent-deployer', 'namespace': 'hermes-deployer', 'port': 8080}
+        'service': {'name': 'hermes-agent-deployer', 'namespace': 'cp-hermes-deployer', 'port': 8080}
     },
     'proxyService': [{
         'path': '/hermes-agent-deployer/api',
         'pathRewrite': '/api',
         'authorize': True,
         'tls': False,
-        'service': {'name': 'hermes-agent-deployer-bff', 'namespace': 'hermes-deployer', 'port': 3000}
+        'service': {'name': 'hermes-agent-deployer-bff', 'namespace': 'cp-hermes-deployer', 'port': 3000}
     }]
 })
 print(json.dumps(config))
@@ -68,7 +68,7 @@ oc set env deployment/rhods-dashboard \
   "MODULE_FEDERATION_CONFIG=$(cat /tmp/mf-config.json)"
 ```
 
-If installing to a different namespace, change `hermes-deployer` in the JSON above.
+If installing to a different namespace, change `cp-hermes-deployer` in the JSON above.
 
 Dashboard pods restart automatically. Allow ~2 minutes for the rollout.
 
@@ -89,7 +89,7 @@ config.append({
         'remoteEntry': '/remoteEntry.js',
         'authorize': False,
         'tls': False,
-        'service': {'name': 'hermes-agent-deployer', 'namespace': 'hermes-deployer', 'port': 8080}
+        'service': {'name': 'hermes-agent-deployer', 'namespace': 'cp-hermes-deployer', 'port': 8080}
     }
 })
 print(json.dumps(config))
@@ -115,7 +115,7 @@ PLUGIN_NS=my-namespace ./scripts/register-plugin.sh register
 
 ```bash
 # Check plugin pods are running
-oc get pods -n hermes-deployer
+oc get pods -n cp-hermes-deployer
 
 # Check dashboard has the plugin registered
 oc get deployment/rhods-dashboard -n redhat-ods-applications \
@@ -126,7 +126,7 @@ oc get deployment/rhods-dashboard -n redhat-ods-applications \
 # Check remoteEntry.js is reachable from the dashboard
 oc exec -n redhat-ods-applications deploy/rhods-dashboard -c rhods-dashboard \
   -- curl -s -o /dev/null -w "%{http_code}" \
-  http://hermes-agent-deployer.hermes-deployer.svc:8080/remoteEntry.js
+  http://hermes-agent-deployer.cp-hermes-deployer.svc:8080/remoteEntry.js
 ```
 
 ## Configuration
@@ -145,7 +145,7 @@ oc exec -n redhat-ods-applications deploy/rhods-dashboard -c rhods-dashboard \
 ### Disabling the BFF
 
 ```bash
-helm install hermes-deployer chart/ --set bff.enabled=false
+helm install cp-hermes-deployer chart/ --set bff.enabled=false
 ```
 
 Without the BFF, instance listing falls back to client-side N+1 namespace scanning.
@@ -198,7 +198,7 @@ oc set env deployment/rhods-dashboard \
   -n redhat-ods-applications \
   "MODULE_FEDERATION_CONFIG=$(cat /tmp/mf-config.json)"
 
-helm uninstall hermes-deployer -n hermes-deployer
+helm uninstall cp-hermes-deployer -n cp-hermes-deployer
 ```
 
 ## Troubleshooting
@@ -207,8 +207,8 @@ helm uninstall hermes-deployer -n hermes-deployer
 
 1. **Check registration**: `./scripts/register-plugin.sh status`
 2. **Check dashboard pods restarted**: `oc get pods -n redhat-ods-applications -l app=rhods-dashboard` — all pods should show a recent `AGE`
-3. **Check frontend pod is running**: `oc get pods -n hermes-deployer`
-4. **Check remoteEntry.js is served**: `oc exec -n redhat-ods-applications deploy/rhods-dashboard -c rhods-dashboard -- curl -s http://hermes-agent-deployer.hermes-deployer.svc:8080/remoteEntry.js | head -c 100`
+3. **Check frontend pod is running**: `oc get pods -n cp-hermes-deployer`
+4. **Check remoteEntry.js is served**: `oc exec -n redhat-ods-applications deploy/rhods-dashboard -c rhods-dashboard -- curl -s http://hermes-agent-deployer.cp-hermes-deployer.svc:8080/remoteEntry.js | head -c 100`
 5. **Hard refresh** the dashboard (Ctrl+Shift+R) — the browser may cache the old Module Federation manifest
 
 ### Instance creation fails
@@ -220,8 +220,8 @@ helm uninstall hermes-deployer -n hermes-deployer
 
 ### BFF returns empty instance list
 
-1. **Check BFF pod**: `oc logs -n hermes-deployer deploy/hermes-agent-deployer-bff`
-2. **Check BFF health**: `oc exec -n redhat-ods-applications deploy/rhods-dashboard -c rhods-dashboard -- curl -s http://hermes-agent-deployer-bff.hermes-deployer.svc:3000/api/health`
+1. **Check BFF pod**: `oc logs -n cp-hermes-deployer deploy/hermes-agent-deployer-bff`
+2. **Check BFF health**: `oc exec -n redhat-ods-applications deploy/rhods-dashboard -c rhods-dashboard -- curl -s http://hermes-agent-deployer-bff.cp-hermes-deployer.svc:3000/api/health`
 3. **Check proxy config**: the `proxyService` entry in MODULE_FEDERATION_CONFIG must have `path: /hermes-agent-deployer/api` and `pathRewrite: /api`
 
 ### Dashboard crashes after registration

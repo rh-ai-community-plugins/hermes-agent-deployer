@@ -14,7 +14,7 @@ PLATFORM       ?= linux/amd64
 
 # Deployment settings
 HELM_RELEASE   ?= hermes-deployer
-HELM_NAMESPACE ?= hermes-deployer
+HELM_NAMESPACE ?= cp-hermes-deployer
 SANDBOX_IMAGE  ?= $(REGISTRY)/$(SANDBOX_IMAGE_NAME):$(IMAGE_TAG)
 
 # ──────────────────────────────────────────────
